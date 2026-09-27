@@ -135,7 +135,7 @@ export default function App() {
   const [code, setCode] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("auto");
   const [detectedLanguage, setDetectedLanguage] = useState("");
-  const [activeFileName, setActiveFileName] = useState("snippet.py");
+  const [activeFileName, setActiveFileName] = useState("");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
   const [activeDemoStep, setActiveDemoStep] = useState(null);
   
@@ -185,6 +185,16 @@ export default function App() {
     setSelectedLanguage(step.language);
     setMemoryEnabled(step.memoryEnabled);
     setReviewResult(null);
+    setReviewLatency(null);
+    setDetectedLanguage("");
+  };
+
+  const handleClear = () => {
+    setCode("");
+    setActiveFileName("");
+    setReviewResult(null);
+    setActiveDemoStep(null);
+    setDetectedLanguage("");
     setReviewLatency(null);
   };
 
@@ -319,7 +329,7 @@ export default function App() {
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#07090e] text-slate-100 font-sans select-none">
       {/* 1. Top Application Header: Professional Product Branding & Navigation */}
-      <header className="h-[52px] min-h-[52px] w-full bg-[#0a0d14] border-b border-white/[0.08] px-4 sm:px-5 flex items-center justify-between z-30 shrink-0">
+      <header className="h-[54px] min-h-[54px] w-full bg-[#0a0d14] border-b border-white/[0.08] px-4 sm:px-6 flex items-center justify-between z-30 shrink-0">
         {/* Left: Brand Identity */}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 via-indigo-500 to-teal-400 p-[1px] shadow-md shadow-violet-500/10 shrink-0">
@@ -329,14 +339,14 @@ export default function App() {
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
-              <h1 className="text-[14px] font-bold tracking-tight text-white leading-none">
+              <h1 className="text-[15px] font-bold tracking-tight text-white leading-none">
                 Codebase Memory
               </h1>
-              <span className="badge badge-xs bg-violet-950/60 text-violet-300 border border-violet-500/30 text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.2">
-                Hindsight AI
+              <span className="badge badge-xs bg-violet-950/60 text-violet-300 border border-violet-500/30 text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5">
+                HINDSIGHT AI
               </span>
             </div>
-            <span className="text-[11px] text-slate-400 leading-tight mt-0.5 hidden sm:inline">
+            <span className="text-[11px] text-slate-400 leading-tight mt-1 hidden sm:inline">
               Self-improving code review agent with persistent team memory
             </span>
           </div>
@@ -346,24 +356,27 @@ export default function App() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setIsMemoryDrawerOpen(true)}
-            className="btn btn-sm h-8 min-h-0 bg-[#0e1320] hover:bg-[#141a2c] text-slate-200 hover:text-white border-white/[0.08] hover:border-teal-500/40 rounded-lg flex items-center gap-2 text-xs font-semibold shadow-sm transition-all px-3"
-            title="Inspect stored team conventions and rules"
+            className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-[#0e1320] hover:bg-[#141a2c] border border-white/[0.08] hover:border-teal-500/40 shadow-sm transition-all text-left"
+            title="Inspect stored team conventions"
           >
-            <Brain size={13} className="text-teal-400" />
-            <span>Team Memory</span>
-            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 font-mono">
-              {memories.length}
-            </span>
+            <Brain size={16} className="text-teal-400 shrink-0 group-hover:scale-105 transition-transform" />
+            <div className="flex flex-col">
+              <span className="text-xs font-semibold text-slate-200 group-hover:text-white leading-tight">
+                Team Memory
+              </span>
+              <span className="text-[10px] font-medium text-slate-400 group-hover:text-teal-300/90 leading-tight font-mono">
+                {memories.length} {memories.length === 1 ? 'memory' : 'memories'}
+              </span>
+            </div>
           </button>
         </div>
       </header>
 
       {/* 2. Secondary Sub-Toolbar: Compact 3-Step Interactive Tour */}
-      <div className="h-9 min-h-[36px] w-full bg-[#080b12] border-b border-white/[0.06] px-4 sm:px-5 flex items-center justify-between z-20 shrink-0 text-xs">
+      <div className="h-[38px] min-h-[38px] w-full bg-[#080b12] border-b border-white/[0.06] px-4 sm:px-6 flex items-center justify-between z-20 shrink-0 text-xs">
         <div className="flex items-center gap-2 overflow-x-auto py-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 shrink-0">
-            <Sparkles size={11} className="text-violet-400" />
-            Demo Tour
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 select-none">
+            DEMO
           </span>
           <div className="h-3 w-[1px] bg-white/[0.08] shrink-0" />
           <div className="flex items-center gap-1 shrink-0">
@@ -390,7 +403,7 @@ export default function App() {
               }`}
             >
               <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
-                activeDemoStep === 2 ? 'bg-teal-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
+                activeDemoStep === 2 ? 'bg-teal-400 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
               }`}>2</span>
               <span>Apply Memory</span>
             </button>
@@ -411,15 +424,16 @@ export default function App() {
           </div>
         </div>
 
-        {/* Active Step Context / Instruction */}
+        {/* Compact Right-Side Context Display */}
         <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-400 truncate pl-3">
           {activeDemoStep ? (
-            <>
-              <span className="text-violet-400 font-semibold">Step 0{activeDemoStep}:</span>
-              <span className="text-slate-300 truncate">{DEMO_STEPS[activeDemoStep]?.hint}</span>
-            </>
+            <div className="flex items-center gap-1.5 truncate" title={DEMO_STEPS[activeDemoStep]?.hint}>
+              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
+              <span className="font-semibold text-slate-300">Scenario {activeDemoStep}:</span>
+              <span className="text-slate-400 truncate">{DEMO_STEPS[activeDemoStep]?.hint}</span>
+            </div>
           ) : (
-            <span className="text-slate-500 italic">Select a tour step or write code in the editor</span>
+            <span className="text-slate-500 italic">Select a scenario to populate demo code, or paste custom code</span>
           )}
         </div>
       </div>
@@ -444,9 +458,11 @@ export default function App() {
                 ))}
               </select>
 
-              <span className="text-[11px] font-mono text-slate-500 border-l border-white/[0.08] pl-2 hidden sm:inline">
-                {activeFileName}
-              </span>
+              {activeFileName && (
+                <span className="text-[11px] font-mono text-slate-400 border-l border-white/[0.08] pl-2 hidden sm:inline">
+                  {activeFileName}
+                </span>
+              )}
 
               {detectedLanguage && selectedLanguage === "auto" && (
                 <span className="badge badge-xs bg-violet-950/60 border border-violet-500/40 text-violet-300 text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 uppercase">
@@ -458,9 +474,9 @@ export default function App() {
             <div className="flex items-center gap-1.5">
               {code && (
                 <button
-                  onClick={() => { setCode(""); setReviewResult(null); setActiveDemoStep(null); }}
+                  onClick={handleClear}
                   className="btn btn-ghost btn-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 text-[11px] font-medium"
-                  title="Clear code"
+                  title="Clear editor code"
                 >
                   <Trash2 size={12} />
                   <span>Clear</span>
@@ -490,6 +506,12 @@ export default function App() {
 
           {/* Monaco Editor Canvas */}
           <div className="flex-1 w-full h-full relative overflow-hidden bg-[#07090f]">
+            {(!code || code.trim() === "") && (
+              <div className="absolute top-4 left-14 pointer-events-none z-10 flex flex-col font-mono text-[12.5px] text-slate-500/80 select-none space-y-1">
+                <p># Paste code here to review</p>
+                <p># Or choose a scenario from the Demo Tour above.</p>
+              </div>
+            )}
             <Editor
               height="100%"
               width="100%"
@@ -518,7 +540,7 @@ export default function App() {
                 : "○ Baseline Mode: Generic isolated review without team memory"}
             </span>
             <span className="font-mono text-[10px]">
-              {code ? `${code.split('\n').length} lines` : "Empty editor"}
+              {code ? `${code.split('\n').length} lines` : "Empty workspace"}
             </span>
           </div>
         </section>
@@ -529,7 +551,7 @@ export default function App() {
           <div className="h-10 min-h-[40px] bg-[#0c101a] border-b border-white/[0.06] px-3.5 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
-                {reviewResult ? "Review Complete" : "Review Findings"}
+                Review Findings
               </span>
               {reviewLatency && (
                 <span className="text-[10px] font-mono text-slate-400 bg-slate-900 border border-white/[0.06] px-1.5 py-0.5 rounded">
@@ -538,32 +560,37 @@ export default function App() {
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               {/* Review Mode Selector (Hindsight vs Baseline) */}
-              <div className="flex items-center bg-[#101422] border border-white/[0.08] rounded-md p-0.5 text-xs">
-                <button
-                  onClick={() => setMemoryEnabled(true)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
-                    memoryEnabled
-                      ? 'bg-teal-950/70 text-teal-300 border border-teal-500/40 shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Hindsight Memory ON: Applies persistent team conventions"
-                >
-                  <span className={`w-1.5 h-1.5 rounded-full ${memoryEnabled ? 'bg-teal-400 shadow-[0_0_6px_#2dd4bf]' : 'bg-slate-600'}`} />
-                  <span>🧠 Hindsight ON</span>
-                </button>
-                <button
-                  onClick={() => setMemoryEnabled(false)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
-                    !memoryEnabled
-                      ? 'bg-slate-800 text-slate-200 border border-white/[0.1] shadow-sm'
-                      : 'text-slate-400 hover:text-slate-200'
-                  }`}
-                  title="Baseline Mode: Standard review without team memory"
-                >
-                  <span>○ Baseline</span>
-                </button>
+              <div className="flex items-center gap-1.5">
+                <span className="hidden xl:inline text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                  Review Mode:
+                </span>
+                <div className="flex items-center bg-[#101422] border border-white/[0.08] rounded-md p-0.5 text-xs">
+                  <button
+                    onClick={() => setMemoryEnabled(true)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                      memoryEnabled
+                        ? 'bg-teal-950/70 text-teal-300 border border-teal-500/40 shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Hindsight Memory ON: Applies persistent team conventions"
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${memoryEnabled ? 'bg-teal-400 shadow-[0_0_6px_#2dd4bf]' : 'bg-slate-600'}`} />
+                    <span>🧠 Hindsight ON</span>
+                  </button>
+                  <button
+                    onClick={() => setMemoryEnabled(false)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                      !memoryEnabled
+                        ? 'bg-slate-800 text-slate-200 border border-white/[0.1] shadow-sm'
+                        : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                    title="Baseline Mode: Standard review without team memory"
+                  >
+                    <span>○ Baseline</span>
+                  </button>
+                </div>
               </div>
 
               {/* Finding Counters if review completed */}
@@ -685,29 +712,15 @@ export default function App() {
             {/* Empty Awaiting Submission State */}
             {!reviewResult && !isReviewing && (
               <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 text-slate-500">
-                <div className="w-11 h-11 rounded-xl bg-[#101422] border border-white/[0.08] flex items-center justify-center mb-2.5 text-slate-400 shadow-sm">
-                  <Code2 size={20} />
+                <div className="w-10 h-10 rounded-xl bg-[#0f1320] border border-white/[0.07] flex items-center justify-center mb-3 text-slate-400 shadow-inner">
+                  <span className="text-sm text-slate-400 font-mono">◇</span>
                 </div>
-                <h3 className="text-slate-200 font-bold text-xs mb-1">No Review Yet</h3>
-                <p className="text-[11.5px] max-w-xs text-slate-400 leading-relaxed mb-4">
-                  Select a demo step above or paste custom code, then click <strong>Review Code</strong>.
+                <h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mb-1.5">
+                  No Review Yet
+                </h3>
+                <p className="text-[11.5px] max-w-xs text-slate-400 leading-relaxed">
+                  Paste code or choose a demo scenario above to begin the review.
                 </p>
-
-                {/* Quick Tour Shortcuts */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => selectDemoStep(1)}
-                    className="btn btn-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/[0.08] text-[11px]"
-                  >
-                    Load Step 01
-                  </button>
-                  <button
-                    onClick={() => selectDemoStep(2)}
-                    className="btn btn-xs bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/[0.08] text-[11px]"
-                  >
-                    Load Step 02
-                  </button>
-                </div>
               </div>
             )}
 
