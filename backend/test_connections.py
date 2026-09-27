@@ -43,7 +43,7 @@ def test_hindsight():
             print(f"[HINDSIGHT] Creating bank '{bank_id}'...")
             client.create_bank(
                 bank_id=bank_id,
-                name="Codebase Memory Demo Bank",
+                name="CodeSage Bank",
                 mission="Store team coding conventions, architectural decisions, and review feedback."
             )
             print(f"[HINDSIGHT] Bank '{bank_id}' created successfully!")

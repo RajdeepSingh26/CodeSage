@@ -1,4 +1,4 @@
-# CODEBASE MEMORY
+# CodeSage
 > **"An AI Code Review Agent That Learns Your Team"**  
 > *Built for HackWithHyderabad 3.0*
 
@@ -13,19 +13,19 @@
 
 Traditional AI code review tools treat every code snippet in complete isolation. They offer generic advice, repeatedly report issues that the team has already discussed, and fail to adapt to a company's specific engineering culture and architectural rules.
 
-**Codebase Memory** transforms code review by embedding **Hindsight**—an agentic persistent memory system—directly into the review lifecycle. Rather than acting as a static bot, our agent evolves alongside your engineering team:
+**CodeSage** transforms code review by embedding **Hindsight**—an agentic persistent memory system—directly into the review lifecycle. Rather than acting as a static bot, our agent evolves alongside your engineering team:
 
 * **WITHOUT MEMORY:** `Code` ➔ Generic AI review (repeating the same generic suggestions).
 * **WITH HINDSIGHT:** `Code` ➔ Retrieve relevant team memory ➔ Context-aware review actively citing established team conventions and prior review decisions.
 
 > **The Central Value Proposition:**  
-> *"Generic AI reviews code. Codebase Memory learns how YOUR team reviews code."*
+> *"Generic AI reviews code. CodeSage learns how YOUR team reviews code."*
 
 ---
 
 ## 🏆 Hackathon Judging Criteria Alignment
 
-| Criterion | Weight | How Codebase Memory Delivers |
+| Criterion | Weight | How CodeSage Delivers |
 | :--- | :---: | :--- |
 | **Innovation** | **30%** | Solves the LLM "statelessness" problem in software engineering. Transforms AI code review from an isolated prompt into a self-improving institutional memory layer. |
 | **Hindsight Memory** | **25%** | **Deep, official integration**: Uses Hindsight Cloud (`hindsight-client`) with explicit `retain()`, `recall()`, memory networks (`world`, `observation`), and bank isolation. Memory is central to every review decision. |
@@ -221,9 +221,7 @@ All 4 test suites validate:
 
 ## 🔮 Future Roadmap
 
-* **GitHub App / PR Webhook Integration:** Run Codebase Memory automatically on every GitHub Pull Request.
+* **GitHub App / PR Webhook Integration:** Run CodeSage automatically on every GitHub Pull Request.
 * **IDE Extension:** Inline VS Code diagnostics highlighting team convention conflicts as you type.
 * **Cross-Repo Memory Sync:** Share architectural conventions across multiple microservice repositories within an organization.
 * **Multi-Modal Architecture Reviews:** Retain diagrams, RFC links, and architecture decision records (ADRs) into Hindsight.
-#   C o d e S a g e  
- 
