@@ -318,113 +318,114 @@ export default function App() {
 
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-[#07090e] text-slate-100 font-sans select-none">
-      {/* Top Header: Professional Developer Tool Navbar */}
-      <header className="h-[52px] min-h-[52px] w-full bg-[#0a0d14] border-b border-white/[0.08] px-4 flex items-center justify-between z-30 shrink-0">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 via-indigo-500 to-teal-400 p-[1px] shadow-sm">
+      {/* 1. Top Application Header: Professional Product Branding & Navigation */}
+      <header className="h-[52px] min-h-[52px] w-full bg-[#0a0d14] border-b border-white/[0.08] px-4 sm:px-5 flex items-center justify-between z-30 shrink-0">
+        {/* Left: Brand Identity */}
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-violet-600 via-indigo-500 to-teal-400 p-[1px] shadow-md shadow-violet-500/10 shrink-0">
             <div className="w-full h-full bg-[#090c14] rounded-[7px] flex items-center justify-center text-white">
-              <Brain size={15} className="text-teal-400" />
+              <Brain size={16} className="text-teal-400" />
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-sm font-bold tracking-tight text-white leading-none">
-              Codebase Memory
-            </h1>
-            <span className="hidden md:inline-block text-[11px] font-medium text-slate-500 border-l border-white/[0.08] pl-2 leading-none">
-              AI Code Review • Persistent Team Knowledge
+          <div className="flex flex-col">
+            <div className="flex items-center gap-2">
+              <h1 className="text-[14px] font-bold tracking-tight text-white leading-none">
+                Codebase Memory
+              </h1>
+              <span className="badge badge-xs bg-violet-950/60 text-violet-300 border border-violet-500/30 text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.2">
+                Hindsight AI
+              </span>
+            </div>
+            <span className="text-[11px] text-slate-400 leading-tight mt-0.5 hidden sm:inline">
+              Self-improving code review agent with persistent team memory
             </span>
           </div>
         </div>
 
-        {/* Center: 3-Step Demo Tour Segmented Control */}
-        <div className="hidden lg:flex items-center bg-[#0e1320] border border-white/[0.08] rounded-lg p-0.5 text-xs">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 px-2">
-            Demo Tour
-          </span>
-          <button
-            onClick={() => selectDemoStep(1)}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeDemoStep === 1
-                ? 'bg-violet-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span className="text-[10px] font-mono opacity-70">01</span>
-            <span>Establish Convention</span>
-          </button>
-          <span className="text-slate-600 text-xs px-1">→</span>
-          <button
-            onClick={() => selectDemoStep(2)}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeDemoStep === 2
-                ? 'bg-teal-600 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span className="text-[10px] font-mono opacity-70">02</span>
-            <span>Apply Memory</span>
-          </button>
-          <span className="text-slate-600 text-xs px-1">→</span>
-          <button
-            onClick={() => selectDemoStep(3)}
-            className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
-              activeDemoStep === 3
-                ? 'bg-slate-700 text-white shadow-sm'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <span className="text-[10px] font-mono opacity-70">03</span>
-            <span>Compare Baseline</span>
-          </button>
-        </div>
-
-        {/* Right Header Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          {/* Review Mode Selector (Hindsight vs Baseline) */}
-          <div className="flex items-center bg-[#0e1320] border border-white/[0.08] rounded-lg p-0.5 text-xs">
-            <button
-              onClick={() => setMemoryEnabled(true)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition-all ${
-                memoryEnabled
-                  ? 'bg-teal-950/60 text-teal-300 border border-teal-500/40 shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Hindsight Memory ON: Applies persistent team conventions"
-            >
-              <div className={`w-1.5 h-1.5 rounded-full ${memoryEnabled ? 'bg-teal-400 shadow-[0_0_6px_#2dd4bf]' : 'bg-slate-600'}`} />
-              <span>🧠 Hindsight ON</span>
-            </button>
-            <button
-              onClick={() => setMemoryEnabled(false)}
-              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
-                !memoryEnabled
-                  ? 'bg-slate-800 text-slate-200 border border-white/[0.1] shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title="Baseline Mode: Standard review without team memory"
-            >
-              <span>○ Baseline</span>
-            </button>
-          </div>
-
-          {/* Stored Team Memories Trigger */}
+        {/* Right: Refined Team Memory Trigger */}
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setIsMemoryDrawerOpen(true)}
-            className="btn btn-sm h-7 min-h-0 bg-[#0e1320] hover:bg-[#141a2c] text-slate-200 border-white/[0.08] hover:border-white/[0.15] rounded-lg flex items-center gap-1.5 text-xs font-semibold shadow-sm transition-all px-2.5"
-            title="Inspect stored team conventions"
+            className="btn btn-sm h-8 min-h-0 bg-[#0e1320] hover:bg-[#141a2c] text-slate-200 hover:text-white border-white/[0.08] hover:border-teal-500/40 rounded-lg flex items-center gap-2 text-xs font-semibold shadow-sm transition-all px-3"
+            title="Inspect stored team conventions and rules"
           >
-            <BookOpen size={13} className="text-teal-400" />
-            <span className="hidden sm:inline">Team Memories</span>
-            <span className="badge badge-sm bg-teal-500/20 text-teal-300 border-teal-500/30 text-[10px] font-bold px-1.5 py-0.5">
+            <Brain size={13} className="text-teal-400" />
+            <span>Team Memory</span>
+            <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-teal-500/20 text-teal-300 border border-teal-500/30 font-mono">
               {memories.length}
             </span>
           </button>
         </div>
       </header>
 
+      {/* 2. Secondary Sub-Toolbar: Compact 3-Step Interactive Tour */}
+      <div className="h-9 min-h-[36px] w-full bg-[#080b12] border-b border-white/[0.06] px-4 sm:px-5 flex items-center justify-between z-20 shrink-0 text-xs">
+        <div className="flex items-center gap-2 overflow-x-auto py-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1 shrink-0">
+            <Sparkles size={11} className="text-violet-400" />
+            Demo Tour
+          </span>
+          <div className="h-3 w-[1px] bg-white/[0.08] shrink-0" />
+          <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={() => selectDemoStep(1)}
+              className={`px-2.5 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+                activeDemoStep === 1
+                  ? 'bg-violet-600/25 text-violet-200 border border-violet-500/50 font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+              }`}
+            >
+              <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
+                activeDemoStep === 1 ? 'bg-violet-500 text-white' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
+              }`}>1</span>
+              <span>Establish Convention</span>
+            </button>
+            <span className="text-slate-600 text-xs select-none">→</span>
+            <button
+              onClick={() => selectDemoStep(2)}
+              className={`px-2.5 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+                activeDemoStep === 2
+                  ? 'bg-teal-600/25 text-teal-200 border border-teal-500/50 font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+              }`}
+            >
+              <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
+                activeDemoStep === 2 ? 'bg-teal-500 text-slate-900 font-bold' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
+              }`}>2</span>
+              <span>Apply Memory</span>
+            </button>
+            <span className="text-slate-600 text-xs select-none">→</span>
+            <button
+              onClick={() => selectDemoStep(3)}
+              className={`px-2.5 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5 transition-all ${
+                activeDemoStep === 3
+                  ? 'bg-slate-700/60 text-slate-100 border border-white/[0.2] font-semibold shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
+              }`}
+            >
+              <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
+                activeDemoStep === 3 ? 'bg-slate-300 text-slate-900 font-bold' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
+              }`}>3</span>
+              <span>Compare Baseline</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Active Step Context / Instruction */}
+        <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-400 truncate pl-3">
+          {activeDemoStep ? (
+            <>
+              <span className="text-violet-400 font-semibold">Step 0{activeDemoStep}:</span>
+              <span className="text-slate-300 truncate">{DEMO_STEPS[activeDemoStep]?.hint}</span>
+            </>
+          ) : (
+            <span className="text-slate-500 italic">Select a tour step or write code in the editor</span>
+          )}
+        </div>
+      </div>
+
       {/* Main Framed Split View (Left: Editor | Right: Review) */}
-      <main className="flex-1 w-full h-[calc(100vh-52px)] p-2 sm:p-3 gap-2 sm:gap-3 flex flex-col lg:flex-row overflow-hidden">
+      <main className="flex-1 min-h-0 w-full p-2 sm:p-3 gap-2 sm:gap-3 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Column: Monaco Code Editor */}
         <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0a0d14] border border-white/[0.08] rounded-xl overflow-hidden shadow-xl shadow-black/80">
           {/* Editor Sub-Header Toolbar */}
@@ -524,7 +525,7 @@ export default function App() {
 
         {/* Right Column: Redesigned Review Findings Panel */}
         <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0a0d14] border border-white/[0.08] rounded-xl overflow-hidden shadow-xl shadow-black/80">
-          {/* 1. Review Summary Header */}
+          {/* 1. Review Summary Header with Embedded Review Mode Selector */}
           <div className="h-10 min-h-[40px] bg-[#0c101a] border-b border-white/[0.06] px-3.5 flex items-center justify-between shrink-0">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-200">
@@ -537,28 +538,58 @@ export default function App() {
               )}
             </div>
 
-            {reviewResult && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="font-bold text-slate-300">
-                  {reviewResult.findings.length} Issue{reviewResult.findings.length === 1 ? '' : 's'}
-                </span>
-                {highCount > 0 && (
-                  <span className="text-[10.5px] font-bold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded">
-                    {highCount} High
-                  </span>
-                )}
-                {medCount > 0 && (
-                  <span className="text-[10.5px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
-                    {medCount} Med
-                  </span>
-                )}
-                {lowCount > 0 && (
-                  <span className="text-[10.5px] font-bold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.2 rounded">
-                    {lowCount} Low
-                  </span>
-                )}
+            <div className="flex items-center gap-2">
+              {/* Review Mode Selector (Hindsight vs Baseline) */}
+              <div className="flex items-center bg-[#101422] border border-white/[0.08] rounded-md p-0.5 text-xs">
+                <button
+                  onClick={() => setMemoryEnabled(true)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+                    memoryEnabled
+                      ? 'bg-teal-950/70 text-teal-300 border border-teal-500/40 shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Hindsight Memory ON: Applies persistent team conventions"
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${memoryEnabled ? 'bg-teal-400 shadow-[0_0_6px_#2dd4bf]' : 'bg-slate-600'}`} />
+                  <span>🧠 Hindsight ON</span>
+                </button>
+                <button
+                  onClick={() => setMemoryEnabled(false)}
+                  className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition-all ${
+                    !memoryEnabled
+                      ? 'bg-slate-800 text-slate-200 border border-white/[0.1] shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                  title="Baseline Mode: Standard review without team memory"
+                >
+                  <span>○ Baseline</span>
+                </button>
               </div>
-            )}
+
+              {/* Finding Counters if review completed */}
+              {reviewResult && (
+                <div className="hidden sm:flex items-center gap-1.5 text-xs border-l border-white/[0.08] pl-2">
+                  <span className="font-bold text-slate-300">
+                    {reviewResult.findings.length} Issue{reviewResult.findings.length === 1 ? '' : 's'}
+                  </span>
+                  {highCount > 0 && (
+                    <span className="text-[10px] font-bold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded">
+                      {highCount} High
+                    </span>
+                  )}
+                  {medCount > 0 && (
+                    <span className="text-[10px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                      {medCount} Med
+                    </span>
+                  )}
+                  {lowCount > 0 && (
+                    <span className="text-[10px] font-bold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-1.5 py-0.2 rounded">
+                      {lowCount} Low
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 2. Compact Hindsight Memory Context Strip */}
