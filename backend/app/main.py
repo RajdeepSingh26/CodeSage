@@ -9,11 +9,13 @@ from app.schemas import (
     ReviewResponse,
     DecisionRequest,
     DecisionResponse,
-    BankStatusResponse
+    BankStatusResponse,
+    RepoReviewRequest,
+    RepoReviewResponse
 )
 from app.services.hindsight_service import hindsight_service
 from app.services.llm_service import llm_service
-from app.agent import run_engram_pipeline
+from app.agent import run_engram_pipeline, run_repository_review
 from app.demo_scenarios import DEMO_SCENARIOS
 
 # Configure logging
@@ -90,6 +92,25 @@ def review_code(req: ReviewRequest):
         bypass_memory=req.bypass_memory
     )
     return response
+
+@app.post("/api/repository-review", response_model=RepoReviewResponse)
+def review_repository(req: RepoReviewRequest):
+    target_bank = req.bank_id or settings.HINDSIGHT_BANK_ID
+    logger.info(f"Initiating Repository Review for '{req.repo_url}' on branch '{req.branch}' (bank: {target_bank})")
+    try:
+        response = run_repository_review(
+            repo_url=req.repo_url,
+            branch=req.branch,
+            bank_id=target_bank,
+            bypass_memory=req.bypass_memory
+        )
+        return response
+    except ValueError as ve:
+        logger.warning(f"Repository review client error: {ve}")
+        raise HTTPException(status_code=400, detail=str(ve))
+    except Exception as e:
+        logger.exception(f"Repository review execution error: {e}")
+        raise HTTPException(status_code=500, detail=f"Repository review failed: {str(e)}")
 
 @app.post("/api/decision", response_model=DecisionResponse)
 def record_decision(req: DecisionRequest):

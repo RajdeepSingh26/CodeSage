@@ -31,12 +31,14 @@ export default function DiffViewer({ proposedFix, onApplyFix, language = "python
 
   const {
     fixed_code = "",
-    diff = "",
+    diff: rawDiff = "",
+    unified_diff = "",
     explanation = "",
     validation_status = "passed",
     validation_checks = [],
     file_name = "code"
   } = proposedFix;
+  const diff = rawDiff || unified_diff || "";
 
   const handleCopy = () => {
     const textToCopy = viewMode === "diff" ? diff : fixed_code;

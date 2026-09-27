@@ -18,7 +18,13 @@ import {
   GitPullRequest,
   Activity,
   Layers,
-  ShieldCheck
+  ShieldCheck,
+  Globe,
+  GitBranch,
+  FolderGit2,
+  FileText,
+  ExternalLink,
+  ArrowRight
 } from 'lucide-react';
 
 const SUPPORTED_LANGUAGES = [
@@ -59,6 +65,14 @@ export default function App() {
   const [dismissedFindings, setDismissedFindings] = useState(new Set());
   const [isResetting, setIsResetting] = useState(false);
   
+  // Repository Review Mode State
+  const [reviewMode, setReviewMode] = useState("code"); // "code" | "repository"
+  const [repoUrl, setRepoUrl] = useState("");
+  const [repoBranch, setRepoBranch] = useState("main");
+  const [repoReviewResult, setRepoReviewResult] = useState(null);
+  const [isRepoReviewing, setIsRepoReviewing] = useState(false);
+  const [selectedRepoFixIndex, setSelectedRepoFixIndex] = useState(0);
+
   // UI Panels & Filters
   const [activeRightTab, setActiveRightTab] = useState("findings"); // "findings" | "diff" | "pipeline"
   const [severityFilter, setSeverityFilter] = useState("all");
@@ -136,6 +150,47 @@ export default function App() {
     }
   };
 
+  const handleRepoReview = async (overrideUrl) => {
+    const targetUrl = overrideUrl || repoUrl;
+    if (!targetUrl || !targetUrl.trim()) {
+      alert("Please enter a public GitHub repository URL (e.g. https://github.com/pallets/flask)");
+      return;
+    }
+
+    setIsRepoReviewing(true);
+    setRepoReviewResult(null);
+    setSelectedRepoFixIndex(0);
+    const startTime = performance.now();
+
+    try {
+      const res = await fetch('/api/repository-review', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          repo_url: targetUrl.trim(),
+          branch: repoBranch.trim() || "main",
+          bypass_memory: !memoryEnabled
+        })
+      });
+
+      const endTime = performance.now();
+      const elapsedSeconds = ((endTime - startTime) / 1000).toFixed(1);
+      setReviewLatency(elapsedSeconds);
+
+      if (res.ok) {
+        const data = await res.json();
+        setRepoReviewResult(data);
+      } else {
+        const err = await res.json();
+        alert(`Repository review failed: ${err.detail || "Server error"}`);
+      }
+    } catch (err) {
+      alert(`Network error connecting to review service: ${err.message}`);
+    } finally {
+      setIsRepoReviewing(false);
+    }
+  };
+
   const handleDecision = async (finding, decision) => {
     try {
       const res = await fetch('/api/decision', {
@@ -208,8 +263,15 @@ export default function App() {
     return "python";
   };
 
+  // Active result and state based on reviewMode
+  const activeResult = reviewMode === "repository" ? repoReviewResult : reviewResult;
+  const isCurrentlyReviewing = reviewMode === "repository" ? isRepoReviewing : isReviewing;
+  const currentProposedFixes = reviewMode === "repository"
+    ? (repoReviewResult?.proposed_fixes || [])
+    : (reviewResult?.proposed_fix ? [reviewResult.proposed_fix] : []);
+
   // Severity Counts
-  const findingsList = reviewResult?.findings || [];
+  const findingsList = activeResult?.findings || [];
   const highCount = findingsList.filter(f => f.severity === 'high').length;
   const medCount = findingsList.filter(f => f.severity === 'medium').length;
   const lowCount = findingsList.filter(f => f.severity === 'low' || f.severity === 'info').length;
@@ -248,6 +310,35 @@ export default function App() {
           </div>
         </div>
 
+        {/* Center: Mode Switcher (Code Snippet Review vs GitHub Repository Review) */}
+        <div className="flex items-center bg-[#101422] border border-white/[0.08] rounded-lg p-0.5 text-xs shadow-inner">
+          <button
+            onClick={() => setReviewMode("code")}
+            className={`px-3 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+              reviewMode === "code"
+                ? "bg-violet-950/80 text-violet-200 border border-violet-500/40 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Code2 size={13} />
+            <span>Code Review</span>
+          </button>
+          <button
+            onClick={() => setReviewMode("repository")}
+            className={`px-3 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1.5 transition-all ${
+              reviewMode === "repository"
+                ? "bg-gradient-to-r from-teal-900/60 to-violet-900/60 text-teal-200 border border-teal-500/40 shadow-sm"
+                : "text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            <Globe size={13} />
+            <span>GitHub Repository</span>
+            <span className="badge badge-xs bg-teal-500/20 text-teal-300 border border-teal-500/30 text-[9px] font-bold">
+              MVP
+            </span>
+          </button>
+        </div>
+
         {/* Right: Refined Team Memory Trigger */}
         <div className="flex items-center gap-2">
           <button
@@ -270,109 +361,462 @@ export default function App() {
 
       {/* Main Framed Split View (Left: Editor | Right: Review) */}
       <main className="flex-1 min-h-0 w-full p-2 sm:p-3 gap-2 sm:gap-3 flex flex-col lg:flex-row overflow-hidden">
-        {/* Left Column: Monaco Code Editor */}
-        <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0a0d14] border border-white/[0.08] rounded-xl overflow-hidden shadow-xl shadow-black/80">
-          {/* Editor Sub-Header Toolbar */}
-          <div className="h-10 min-h-[40px] bg-[#0c101a] border-b border-white/[0.06] px-3 flex items-center justify-between gap-2 shrink-0">
-            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-              <Code2 size={15} className="text-violet-400 shrink-0" />
-              <select
-                value={selectedLanguage}
-                onChange={(e) => setSelectedLanguage(e.target.value)}
-                className="select select-bordered select-xs bg-[#101422] text-slate-200 border-white/[0.08] text-xs rounded-md focus:outline-none focus:border-violet-500 font-medium"
-              >
-                {SUPPORTED_LANGUAGES.map((lang) => (
-                  <option key={lang.id} value={lang.id}>
-                    {lang.label}
-                  </option>
-                ))}
-              </select>
+        {/* Left Column: Switchable between Monaco Code Editor and GitHub Repository Review */}
+        {reviewMode === "code" ? (
+          <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0a0d14] border border-white/[0.08] rounded-xl overflow-hidden shadow-xl shadow-black/80">
+            {/* Editor Sub-Header Toolbar */}
+            <div className="h-10 min-h-[40px] bg-[#0c101a] border-b border-white/[0.06] px-3 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+                <Code2 size={15} className="text-violet-400 shrink-0" />
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="select select-bordered select-xs bg-[#101422] text-slate-200 border-white/[0.08] text-xs rounded-md focus:outline-none focus:border-violet-500 font-medium"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
 
-              {activeFileName && (
-                <span className="text-[11px] font-mono text-slate-400 border-l border-white/[0.08] pl-2 hidden sm:inline">
-                  {activeFileName}
-                </span>
-              )}
+                {activeFileName && (
+                  <span className="text-[11px] font-mono text-slate-400 border-l border-white/[0.08] pl-2 hidden sm:inline">
+                    {activeFileName}
+                  </span>
+                )}
 
-              {detectedLanguage && selectedLanguage === "auto" && (
-                <span className="badge badge-xs bg-violet-950/60 border border-violet-500/40 text-violet-300 text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 uppercase">
-                  Detected: {detectedLanguage}
-                </span>
-              )}
+                {detectedLanguage && selectedLanguage === "auto" && (
+                  <span className="badge badge-xs bg-violet-950/60 border border-violet-500/40 text-violet-300 text-[10px] font-mono font-bold tracking-wider px-2 py-0.5 uppercase">
+                    Detected: {detectedLanguage}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                {code && (
+                  <button
+                    onClick={handleClear}
+                    className="btn btn-ghost btn-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 text-[11px] font-medium"
+                    title="Clear editor code"
+                  >
+                    <Trash2 size={12} />
+                    <span>Clear</span>
+                  </button>
+                )}
+
+                {/* Primary Review Code Action */}
+                <button
+                  onClick={handleReview}
+                  disabled={isReviewing || !code.trim()}
+                  className="btn btn-sm h-7 min-h-0 bg-gradient-to-r from-violet-600 via-indigo-600 to-indigo-700 hover:opacity-90 border-none text-white font-semibold shadow-sm rounded-md flex items-center gap-1.5 text-xs transition-all px-3"
+                >
+                  {isReviewing ? (
+                    <>
+                      <RefreshCw size={12} className="animate-spin" />
+                      <span>Analyzing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={12} />
+                      <span>Review Code</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              {code && (
+            {/* Monaco Editor Canvas */}
+            <div className="flex-1 w-full h-full relative overflow-hidden bg-[#07090f]">
+              {(!code || code.trim() === "") && (
+                <div className="absolute top-4 left-14 pointer-events-none z-10 flex flex-col font-mono text-[12.5px] text-slate-500/80 select-none">
+                  <p># Paste code here to review</p>
+                </div>
+              )}
+              <Editor
+                height="100%"
+                width="100%"
+                language={getMonacoLang()}
+                theme="vs-dark"
+                value={code}
+                onChange={(val) => setCode(val || "")}
+                options={{
+                  fontSize: 13,
+                  fontFamily: "'JetBrains Mono', Consolas, monospace",
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  lineNumbers: "on",
+                  automaticLayout: true,
+                  padding: { top: 10, bottom: 10 },
+                  backgroundColor: "#07090f"
+                }}
+              />
+            </div>
+
+            {/* Editor Footer Hint */}
+            <div className="h-7 min-h-[28px] bg-[#0c101a] border-t border-white/[0.06] px-3 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+              <span>
+                {memoryEnabled
+                  ? "🧠 Memory Active: Review will apply learned team conventions"
+                  : "○ Baseline Mode: Generic isolated review without team memory"}
+              </span>
+              <span className="font-mono text-[10px]">
+                {code ? `${code.split('\n').length} lines` : "Empty workspace"}
+              </span>
+            </div>
+          </section>
+        ) : (
+          /* Left Column: GitHub Repository Review Panel */
+          <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0a0d14] border border-white/[0.08] rounded-xl overflow-hidden shadow-xl shadow-black/80">
+            {/* Repo Sub-Header Toolbar */}
+            <div className="h-10 min-h-[40px] bg-[#0c101a] border-b border-white/[0.06] px-3.5 flex items-center justify-between gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                <Globe size={15} className="text-teal-400 shrink-0" />
+                <span className="text-xs font-bold text-slate-200">
+                  GitHub Repository Audit
+                </span>
+                <span className="badge badge-xs bg-teal-500/10 text-teal-300 border border-teal-500/20 text-[9px] font-mono font-medium hidden sm:inline">
+                  Streaming Ingestion
+                </span>
+              </div>
+
+              {repoReviewResult && (
                 <button
-                  onClick={handleClear}
+                  onClick={() => {
+                    setRepoReviewResult(null);
+                    setRepoUrl("");
+                  }}
                   className="btn btn-ghost btn-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 text-[11px] font-medium"
-                  title="Clear editor code"
                 >
                   <Trash2 size={12} />
-                  <span>Clear</span>
+                  <span>Reset</span>
                 </button>
               )}
-
-              {/* Primary Review Code Action */}
-              <button
-                onClick={handleReview}
-                disabled={isReviewing || !code.trim()}
-                className="btn btn-sm h-7 min-h-0 bg-gradient-to-r from-violet-600 via-indigo-600 to-indigo-700 hover:opacity-90 border-none text-white font-semibold shadow-sm rounded-md flex items-center gap-1.5 text-xs transition-all px-3"
-              >
-                {isReviewing ? (
-                  <>
-                    <RefreshCw size={12} className="animate-spin" />
-                    <span>Analyzing...</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={12} />
-                    <span>Review Code</span>
-                  </>
-                )}
-              </button>
             </div>
-          </div>
 
-          {/* Monaco Editor Canvas */}
-          <div className="flex-1 w-full h-full relative overflow-hidden bg-[#07090f]">
-            {(!code || code.trim() === "") && (
-              <div className="absolute top-4 left-14 pointer-events-none z-10 flex flex-col font-mono text-[12.5px] text-slate-500/80 select-none">
-                <p># Paste code here to review</p>
+            {/* Repository Input & Quick Selection Strip */}
+            <div className="p-3 border-b border-white/[0.06] bg-[#090c14] space-y-2.5 shrink-0">
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <div className="absolute inset-y-0 left-0 pl-2.5 flex items-center pointer-events-none text-slate-500">
+                    <FolderGit2 size={14} />
+                  </div>
+                  <input
+                    type="text"
+                    value={repoUrl}
+                    onChange={(e) => setRepoUrl(e.target.value)}
+                    placeholder="https://github.com/pallets/flask or pallets/flask"
+                    disabled={isRepoReviewing}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRepoReview();
+                    }}
+                    className="input input-sm w-full pl-8 bg-[#101422] border-white/[0.08] text-xs rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 font-mono"
+                  />
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <div className="relative w-28 sm:w-28">
+                    <div className="absolute inset-y-0 left-0 pl-2 flex items-center pointer-events-none text-slate-500">
+                      <GitBranch size={12} />
+                    </div>
+                    <input
+                      type="text"
+                      value={repoBranch}
+                      onChange={(e) => setRepoBranch(e.target.value)}
+                      placeholder="main"
+                      disabled={isRepoReviewing}
+                      className="input input-sm w-full pl-6 bg-[#101422] border-white/[0.08] text-xs rounded-lg text-slate-100 placeholder-slate-500 focus:outline-none focus:border-teal-500 font-mono"
+                    />
+                  </div>
+
+                  <button
+                    onClick={() => handleRepoReview()}
+                    disabled={isRepoReviewing || !repoUrl.trim()}
+                    className="btn btn-sm h-8 min-h-0 bg-gradient-to-r from-teal-600 via-teal-700 to-indigo-700 hover:opacity-90 border-none text-white font-semibold shadow-sm rounded-lg flex items-center gap-1.5 text-xs transition-all px-3.5 shrink-0"
+                  >
+                    {isRepoReviewing ? (
+                      <>
+                        <RefreshCw size={13} className="animate-spin" />
+                        <span>Auditing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={13} />
+                        <span>Review Repo</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-            )}
-            <Editor
-              height="100%"
-              width="100%"
-              language={getMonacoLang()}
-              theme="vs-dark"
-              value={code}
-              onChange={(val) => setCode(val || "")}
-              options={{
-                fontSize: 13,
-                fontFamily: "'JetBrains Mono', Consolas, monospace",
-                minimap: { enabled: false },
-                scrollBeyondLastLine: false,
-                lineNumbers: "on",
-                automaticLayout: true,
-                padding: { top: 10, bottom: 10 },
-                backgroundColor: "#07090f"
-              }}
-            />
-          </div>
 
-          {/* Editor Footer Hint */}
-          <div className="h-7 min-h-[28px] bg-[#0c101a] border-t border-white/[0.06] px-3 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
-            <span>
-              {memoryEnabled
-                ? "🧠 Memory Active: Review will apply learned team conventions"
-                : "○ Baseline Mode: Generic isolated review without team memory"}
-            </span>
-            <span className="font-mono text-[10px]">
-              {code ? `${code.split('\n').length} lines` : "Empty workspace"}
-            </span>
-          </div>
-        </section>
+              {/* Demo Quick Chips */}
+              <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] pt-0.5">
+                <span className="text-slate-500 font-medium shrink-0">Demo Repos:</span>
+                {[
+                  { label: "pallets/flask", url: "https://github.com/pallets/flask", branch: "main", tag: "Python" },
+                  { label: "tiangolo/fastapi", url: "https://github.com/tiangolo/fastapi", branch: "master", tag: "FastAPI" },
+                  { label: "expressjs/express", url: "https://github.com/expressjs/express", branch: "master", tag: "Express" }
+                ].map((demo) => (
+                  <button
+                    key={demo.label}
+                    onClick={() => {
+                      setRepoUrl(demo.url);
+                      setRepoBranch(demo.branch);
+                      handleRepoReview(demo.url);
+                    }}
+                    disabled={isRepoReviewing}
+                    className="px-2 py-0.5 rounded-md bg-[#121626] hover:bg-teal-950/50 text-slate-300 hover:text-teal-200 border border-white/[0.06] hover:border-teal-500/30 font-mono text-[10.5px] transition-all flex items-center gap-1 shrink-0"
+                  >
+                    <span>{demo.label}</span>
+                    <span className="text-[9px] text-teal-400/80 font-sans">({demo.tag})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Repository Main Content Canvas */}
+            <div className="flex-1 w-full h-full overflow-y-auto p-3.5 bg-[#07090f] space-y-3">
+              {/* State 1: Loading Progress */}
+              {isRepoReviewing && (
+                <div className="h-full flex flex-col items-center justify-center p-6 space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-teal-600/20 to-indigo-500/20 border border-teal-500/30 flex items-center justify-center text-teal-400 animate-pulse shadow-lg">
+                    <Globe size={28} />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-slate-100 font-bold text-sm">Autonomous Repository Ingestion & Review</h3>
+                    <p className="text-xs text-slate-400 mt-0.5">Streaming archive, profiling stack, and executing agentic review</p>
+                  </div>
+                  <div className="w-full max-w-md bg-[#0c101a] border border-white/[0.06] rounded-xl p-3.5 space-y-2 text-[11px] font-mono">
+                    <div className="flex items-center gap-2 text-teal-300 animate-pulse">
+                      <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+                      <span>1. Streaming tarball in-memory & safe extraction</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-violet-300 animate-pulse delay-75">
+                      <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+                      <span>2. Scanning file tree & deterministic stack profiling</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-indigo-300 animate-pulse delay-150">
+                      <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                      <span>3. Architectural scoring & selecting top 5 core files</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-emerald-300 animate-pulse delay-200">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                      <span>4. Querying Hindsight Cloud for persistent conventions</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-sky-300 animate-pulse delay-300">
+                      <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                      <span>5. Multi-agent review, AST validation, & repo synthesis</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* State 2: Welcome / Empty State */}
+              {!repoReviewResult && !isRepoReviewing && (
+                <div className="h-full flex flex-col justify-center max-w-lg mx-auto py-4 space-y-3">
+                  <div className="rounded-xl bg-[#0c101a] border border-white/[0.06] p-4 text-center">
+                    <div className="w-11 h-11 rounded-xl bg-teal-950/40 border border-teal-500/30 flex items-center justify-center mx-auto text-teal-400 mb-2.5">
+                      <FolderGit2 size={22} />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-100 mb-1">
+                      Autonomous GitHub Repository Review
+                    </h3>
+                    <p className="text-xs text-slate-400 leading-relaxed max-w-md mx-auto">
+                      Engram autonomously audits public repositories end-to-end: streaming code archives in-memory, profiling dependencies, selecting core architecture files, and enforcing team memory conventions.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="p-3 rounded-lg bg-[#0e1220] border border-white/[0.05] space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-teal-300 text-[11.5px]">
+                        <Layers size={13} />
+                        <span>Deterministic Profiler</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        Inspects package manifests (<code className="text-slate-300">pyproject.toml</code>, <code className="text-slate-300">package.json</code>, etc.) to uncover architecture patterns.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-[#0e1220] border border-white/[0.05] space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-violet-300 text-[11.5px]">
+                        <Brain size={13} />
+                        <span>Hindsight Memory</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        Recalls persistent conventions and architectural decisions stored in your team's memory bank.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-[#0e1220] border border-white/[0.05] space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-indigo-300 text-[11.5px]">
+                        <ShieldCheck size={13} />
+                        <span>Zero Execution Risk</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        Safe in-memory archive extraction protects against Zip Slip, with automated secret redaction.
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-lg bg-[#0e1220] border border-white/[0.05] space-y-1">
+                      <div className="flex items-center gap-1.5 font-bold text-emerald-300 text-[11.5px]">
+                        <GitPullRequest size={13} />
+                        <span>AST-Validated Diffs</span>
+                      </div>
+                      <p className="text-[11px] text-slate-400 leading-snug">
+                        Self-healing retry loops verify proposed code modifications using language AST parsers.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* State 3: Repository Review Completed */}
+              {repoReviewResult && !isRepoReviewing && (
+                <div className="space-y-3">
+                  {/* Repo Summary Header Card */}
+                  <div className="p-3.5 rounded-xl bg-[#0c101a] border border-white/[0.08] space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <FolderGit2 size={16} className="text-teal-400 shrink-0" />
+                        <a
+                          href={repoReviewResult.repository.startsWith('http') ? repoReviewResult.repository : `https://github.com/${repoReviewResult.repository}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-bold text-slate-100 hover:text-teal-300 flex items-center gap-1 text-sm font-mono transition-colors"
+                        >
+                          <span>{repoReviewResult.owner}/{repoReviewResult.repo_name}</span>
+                          <ExternalLink size={12} className="text-slate-500" />
+                        </a>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="badge badge-sm bg-[#121626] border-white/[0.08] text-slate-300 text-[10px] font-mono flex items-center gap-1">
+                          <GitBranch size={10} className="text-slate-400" />
+                          <span>{repoReviewResult.branch}</span>
+                        </span>
+                        <span className="badge badge-sm bg-teal-950/60 border-teal-500/30 text-teal-300 text-[10px] font-mono">
+                          {repoReviewResult.total_files_discovered} files scanned
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Detected Stack & Language Pills */}
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mr-1">
+                        Stack:
+                      </span>
+                      <span className="badge badge-xs bg-violet-950/70 border-violet-500/40 text-violet-300 text-[10px] font-mono font-bold">
+                        {repoReviewResult.project_profile.primary_language}
+                      </span>
+                      {repoReviewResult.project_profile.detected_stack.map((item, idx) => (
+                        <span
+                          key={idx}
+                          className="badge badge-xs bg-[#141a2c] border-white/[0.08] text-slate-300 text-[10px] font-medium"
+                        >
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Architectural Summary */}
+                    <div className="p-2.5 rounded-lg bg-[#080b12] border border-white/[0.05] text-xs text-slate-300 leading-relaxed">
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-teal-400 mb-0.5">
+                        Architectural Blueprint
+                      </div>
+                      <p className="text-[11.5px] text-slate-300">
+                        {repoReviewResult.project_profile.architecture_summary}
+                      </p>
+                      {repoReviewResult.project_profile.key_directories?.length > 0 && (
+                        <div className="flex items-center gap-1.5 mt-1.5 text-[10px] text-slate-400 font-mono">
+                          <span className="text-slate-500">Key modules:</span>
+                          {repoReviewResult.project_profile.key_directories.map((dir, i) => (
+                            <span key={i} className="px-1.5 py-0.2 rounded bg-slate-900 border border-white/[0.06] text-slate-300">
+                              {dir}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Prioritized Architectural Files Table */}
+                  <div className="rounded-xl bg-[#0c101a] border border-white/[0.08] p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Layers size={13} className="text-violet-400" />
+                        <h4 className="text-xs font-bold text-slate-200">
+                          Prioritized Core Files ({repoReviewResult.files_reviewed.length})
+                        </h4>
+                      </div>
+                      <span className="text-[10px] text-slate-400 font-medium">
+                        Layer-diverse architectural sample
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {repoReviewResult.files_reviewed.map((file, idx) => {
+                        const hasFix = repoReviewResult.proposed_fixes?.some(
+                          (fix) => fix.file_name === file.file_path || (fix.unified_diff && fix.unified_diff.length > 0)
+                        );
+
+                        return (
+                          <div
+                            key={idx}
+                            className="p-2 rounded-lg bg-[#080b12] hover:bg-[#0f1422] border border-white/[0.05] transition-all flex items-center justify-between gap-2"
+                          >
+                            <div className="flex items-center gap-2 min-w-0">
+                              <FileText size={13} className="text-teal-400 shrink-0" />
+                              <div className="flex flex-col min-w-0">
+                                <span className="text-xs font-mono font-semibold text-slate-200 truncate">
+                                  {file.file_path}
+                                </span>
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-400">
+                                  <span className="text-teal-300/90 font-medium">{file.role}</span>
+                                  <span>•</span>
+                                  <span className="font-mono">{file.line_count} lines</span>
+                                  <span>•</span>
+                                  <span className="font-mono">{(file.size_bytes / 1024).toFixed(1)} KB</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {hasFix && (
+                              <button
+                                onClick={() => {
+                                  const fixIdx = repoReviewResult.proposed_fixes.findIndex(
+                                    (fix) => fix.file_name === file.file_path
+                                  );
+                                  if (fixIdx >= 0) setSelectedRepoFixIndex(fixIdx);
+                                  setActiveRightTab("diff");
+                                }}
+                                className="btn btn-xs h-6 min-h-0 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-semibold rounded shrink-0 flex items-center gap-1"
+                              >
+                                <GitPullRequest size={10} />
+                                <span>Inspect Diff</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Repository Footer Hint */}
+            <div className="h-7 min-h-[28px] bg-[#0c101a] border-t border-white/[0.06] px-3 flex items-center justify-between text-[11px] text-slate-500 shrink-0">
+              <span>
+                {memoryEnabled
+                  ? "🧠 Hindsight Active: Analyzing repo against team conventions"
+                  : "○ Baseline Mode: Isolated repository review without team memory"}
+              </span>
+              <span className="font-mono text-[10px]">
+                {repoReviewResult ? `${repoReviewResult.files_reviewed.length} files analyzed` : "Public repositories only"}
+              </span>
+            </div>
+          </section>
+        )}
 
         {/* Right Column: Redesigned Review Findings Panel */}
         <section className="w-full lg:w-1/2 h-full flex flex-col bg-[#0a0d14] border border-white/[0.08] rounded-xl overflow-hidden shadow-xl shadow-black/80">
@@ -423,10 +867,10 @@ export default function App() {
               </div>
 
               {/* Finding Counters if review completed */}
-              {reviewResult && (
+              {activeResult && (
                 <div className="hidden sm:flex items-center gap-1.5 text-xs border-l border-white/[0.08] pl-2">
                   <span className="font-bold text-slate-300">
-                    {reviewResult.findings.length} Issue{reviewResult.findings.length === 1 ? '' : 's'}
+                    {findingsList.length} Issue{findingsList.length === 1 ? '' : 's'}
                   </span>
                   {highCount > 0 && (
                     <span className="text-[10px] font-bold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1.5 py-0.2 rounded">
@@ -461,9 +905,9 @@ export default function App() {
               >
                 <Code2 size={13} />
                 <span>Findings</span>
-                {reviewResult && (
+                {activeResult && (
                   <span className="text-[10px] font-mono px-1 rounded bg-violet-500/20 text-violet-300">
-                    {reviewResult.findings.length}
+                    {findingsList.length}
                   </span>
                 )}
               </button>
@@ -478,8 +922,10 @@ export default function App() {
               >
                 <GitPullRequest size={13} />
                 <span>Proposed Fix & Diff</span>
-                {reviewResult?.proposed_fix && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
+                {currentProposedFixes.length > 0 && (
+                  <span className="badge badge-xs bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[9px] font-bold">
+                    {currentProposedFixes.length}
+                  </span>
                 )}
               </button>
 
@@ -493,13 +939,13 @@ export default function App() {
               >
                 <Activity size={13} />
                 <span>Agent Pipeline</span>
-                {reviewResult?.retry_count > 0 ? (
+                {activeResult?.retry_count > 0 ? (
                   <span className="badge badge-xs bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[9px] font-bold">
-                    {reviewResult.retry_count} retry
+                    {activeResult.retry_count} retry
                   </span>
-                ) : reviewResult?.timeline ? (
+                ) : activeResult?.timeline ? (
                   <span className="text-[10px] font-mono px-1 rounded bg-sky-500/20 text-sky-300">
-                    {reviewResult.timeline.length}
+                    {activeResult.timeline.length}
                   </span>
                 ) : null}
               </button>
@@ -508,14 +954,22 @@ export default function App() {
 
           {/* Body Content Area */}
           {/* 1. Loading State */}
-          {isReviewing && (
+          {isCurrentlyReviewing && (
             <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
               <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600/20 to-teal-500/20 border border-violet-500/30 flex items-center justify-center text-teal-400 animate-pulse shadow-lg">
                 <Brain size={28} />
               </div>
               <div className="text-center">
-                <h3 className="text-slate-200 font-bold text-sm">Executing LangGraph Agentic Pipeline</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Multi-agent coordination with AST verification</p>
+                <h3 className="text-slate-200 font-bold text-sm">
+                  {reviewMode === "repository"
+                    ? "Executing Autonomous Repository Audit"
+                    : "Executing LangGraph Agentic Pipeline"}
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  {reviewMode === "repository"
+                    ? "Multi-file LangGraph pipeline with AST validation & Hindsight recall"
+                    : "Multi-agent coordination with AST verification"}
+                </p>
               </div>
               <div className="w-full max-w-sm bg-[#0c101a] border border-white/[0.06] rounded-xl p-3.5 space-y-2 text-[11px] font-mono">
                 <div className="flex items-center gap-2 text-teal-300 animate-pulse">
@@ -547,7 +1001,7 @@ export default function App() {
           )}
 
           {/* 2. Empty State */}
-          {!reviewResult && !isReviewing && (
+          {!activeResult && !isCurrentlyReviewing && (
             <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 text-slate-500">
               <div className="w-10 h-10 rounded-xl bg-[#0f1320] border border-white/[0.07] flex items-center justify-center mb-3 text-slate-400 shadow-inner">
                 <span className="text-sm text-slate-400 font-mono">◇</span>
@@ -556,22 +1010,55 @@ export default function App() {
                 No Review Yet
               </h3>
               <p className="text-[11.5px] max-w-xs text-slate-400 leading-relaxed">
-                Paste code in the editor and click Review Code to run the LangGraph agentic pipeline.
+                {reviewMode === "repository"
+                  ? "Select or enter a public GitHub repository on the left and click Review Repo."
+                  : "Paste code in the editor and click Review Code to run the LangGraph agentic pipeline."}
               </p>
             </div>
           )}
 
           {/* 3. Review Generated: Tab Panels */}
-          {reviewResult && !isReviewing && (
+          {activeResult && !isCurrentlyReviewing && (
             <>
               {/* Tab Panel A: Proposed Fix & Diff */}
               {activeRightTab === "diff" && (
-                <div className="flex-1 overflow-hidden">
-                  <DiffViewer
-                    proposedFix={reviewResult.proposed_fix}
-                    onApplyFix={(fixedCode) => setCode(fixedCode)}
-                    language={getMonacoLang()}
-                  />
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {/* File Selector Pills if multiple proposed fixes exist */}
+                  {currentProposedFixes.length > 1 && (
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#090c14] border-b border-white/[0.06] overflow-x-auto shrink-0">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mr-1 shrink-0">
+                        Files with Fixes:
+                      </span>
+                      {currentProposedFixes.map((fix, idx) => (
+                        <button
+                          key={idx}
+                          onClick={() => setSelectedRepoFixIndex(idx)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono transition-all flex items-center gap-1 shrink-0 ${
+                            selectedRepoFixIndex === idx
+                              ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-500/40 font-bold shadow-sm'
+                              : 'bg-[#101422] text-slate-400 hover:text-slate-200 border border-white/[0.06]'
+                          }`}
+                        >
+                          <FileText size={11} className={selectedRepoFixIndex === idx ? 'text-emerald-400' : 'text-slate-500'} />
+                          <span>{fix.file_name || `File ${idx + 1}`}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex-1 overflow-hidden">
+                    <DiffViewer
+                      proposedFix={currentProposedFixes[selectedRepoFixIndex] || currentProposedFixes[0]}
+                      onApplyFix={(fixedCode) => {
+                        if (reviewMode === "code") {
+                          setCode(fixedCode);
+                        } else {
+                          alert(`Fix for ${currentProposedFixes[selectedRepoFixIndex]?.file_name || "file"} is AST-validated. Ready to apply to your repository branch!`);
+                        }
+                      }}
+                      language={getMonacoLang()}
+                    />
+                  </div>
                 </div>
               )}
 
@@ -579,8 +1066,8 @@ export default function App() {
               {activeRightTab === "pipeline" && (
                 <div className="flex-1 overflow-hidden">
                   <AgentTimeline
-                    timeline={reviewResult.timeline || []}
-                    isReviewing={isReviewing}
+                    timeline={activeResult.timeline || []}
+                    isReviewing={isCurrentlyReviewing}
                   />
                 </div>
               )}
@@ -590,7 +1077,7 @@ export default function App() {
                 <div className="flex-1 flex flex-col overflow-hidden">
                   {/* Compact Hindsight Memory Context Strip */}
                   <div className={`mx-3 mt-2.5 p-2.5 rounded-lg border text-xs shrink-0 transition-all ${
-                    reviewResult.review_mode === 'memory_informed'
+                    activeResult.review_mode === 'memory_informed'
                       ? 'bg-teal-950/20 border-teal-500/30 text-teal-200'
                       : 'bg-slate-900/60 border-white/[0.06] text-slate-400'
                   }`}>
@@ -598,15 +1085,15 @@ export default function App() {
                       <div className="flex items-center gap-2">
                         <Brain
                           size={14}
-                          className={reviewResult.review_mode === 'memory_informed' ? 'text-teal-400' : 'text-slate-500'}
+                          className={activeResult.review_mode === 'memory_informed' ? 'text-teal-400' : 'text-slate-500'}
                         />
                         <span className="font-semibold text-slate-200">
-                          {reviewResult.review_mode === 'memory_informed'
-                            ? `Hindsight: ${reviewResult.memories_retrieved.length} relevant team convention(s) applied`
+                          {activeResult.review_mode === 'memory_informed'
+                            ? `Hindsight: ${activeResult.memories_retrieved?.length || 0} relevant team convention(s) applied`
                             : 'Baseline Mode: Generic review — no team memory supplied'}
                         </span>
                       </div>
-                      {reviewResult.memories_retrieved?.length > 0 && (
+                      {activeResult.memories_retrieved?.length > 0 && (
                         <button
                           onClick={() => setShowMemoryContext(!showMemoryContext)}
                           className="text-[11px] text-teal-400 hover:underline flex items-center gap-0.5 font-medium"
@@ -617,9 +1104,9 @@ export default function App() {
                       )}
                     </div>
 
-                    {showMemoryContext && reviewResult.memories_retrieved?.length > 0 && (
+                    {showMemoryContext && activeResult.memories_retrieved?.length > 0 && (
                       <div className="mt-2 pt-2 border-t border-teal-500/20 space-y-1">
-                        {reviewResult.memories_retrieved.map((m, idx) => (
+                        {activeResult.memories_retrieved.map((m, idx) => (
                           <div key={idx} className="text-[11px] text-teal-300/90 font-mono bg-teal-950/40 p-1.5 rounded border border-teal-500/20">
                             • {m}
                           </div>
@@ -713,6 +1200,13 @@ export default function App() {
                                 <span className="text-[10px] font-semibold uppercase text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/[0.06]">
                                   {f.category}
                                 </span>
+
+                                {f.file_path && (
+                                  <span className="text-[10px] font-mono text-teal-300 bg-teal-950/60 border border-teal-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    <FileText size={10} className="text-teal-400" />
+                                    <span>{f.file_path}</span>
+                                  </span>
+                                )}
 
                                 {f.memory_used && (
                                   <span className="text-[10px] font-bold text-teal-300 bg-teal-500/15 border border-teal-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">

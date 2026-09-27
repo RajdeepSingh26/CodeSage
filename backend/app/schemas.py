@@ -79,3 +79,39 @@ class BankStatusResponse(BaseModel):
     bank_id: str
     count: int
     memories: List[dict]
+
+class RepoReviewRequest(BaseModel):
+    repo_url: str = Field(description="GitHub repository URL or owner/repo format")
+    branch: Optional[str] = Field(default="main", description="Branch to review (default: main)")
+    bank_id: Optional[str] = None
+    bypass_memory: bool = False
+
+class ProjectProfileInfo(BaseModel):
+    primary_language: str
+    detected_stack: List[str] = []
+    architecture_summary: str
+    key_directories: List[str] = []
+
+class RepoSelectedFileInfo(BaseModel):
+    file_path: str
+    language: str
+    role: str
+    size_bytes: int
+    line_count: int
+
+class RepoReviewResponse(BaseModel):
+    repository: str
+    owner: str
+    repo_name: str
+    branch: str
+    project_profile: ProjectProfileInfo
+    files_reviewed: List[RepoSelectedFileInfo]
+    findings: List[ReviewFinding]
+    proposed_fixes: List[ProposedFix] = []
+    memories_retrieved: List[str] = []
+    review_mode: Literal["memory_informed", "baseline_no_memory"] = "baseline_no_memory"
+    bank_id: str
+    summary: str
+    timeline: List[TimelineStep] = []
+    total_files_discovered: int = 0
+    pipeline_status: str = "completed"
