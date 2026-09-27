@@ -64,13 +64,13 @@ class LLMService:
             text = text[:-3]
         return text.strip()
 
-    def _call_groq(self, user_content: str) -> Optional[dict]:
+    def _call_groq(self, user_content: str, system_prompt: str = REVIEW_SYSTEM_PROMPT) -> Optional[dict]:
         if not settings.GROQ_API_KEY:
             return None
         try:
             import httpx
             model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
-            logger.info(f"Attempting review with Groq model: {model}")
+            logger.info(f"Attempting LLM call with Groq model: {model}")
             resp = httpx.post(
                 "https://api.groq.com/openai/v1/chat/completions",
                 headers={
@@ -80,7 +80,7 @@ class LLMService:
                 json={
                     "model": model,
                     "messages": [
-                        {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                        {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_content}
                     ],
                     "response_format": {"type": "json_object"},
@@ -98,7 +98,7 @@ class LLMService:
             logger.warning(f"Groq API request failed: {e}")
             return None
 
-    def _call_gemini(self, user_content: str) -> Optional[dict]:
+    def _call_gemini(self, user_content: str, system_prompt: str = REVIEW_SYSTEM_PROMPT) -> Optional[dict]:
         if not self.gemini_client:
             return None
         models_to_try = [
@@ -108,12 +108,12 @@ class LLMService:
         ]
         for model_name in models_to_try:
             try:
-                logger.info(f"Attempting review with Gemini model: {model_name}")
+                logger.info(f"Attempting LLM call with Gemini model: {model_name}")
                 response = self.gemini_client.models.generate_content(
                     model=model_name,
                     contents=user_content,
                     config=types.GenerateContentConfig(
-                        system_instruction=REVIEW_SYSTEM_PROMPT,
+                        system_instruction=system_prompt,
                         response_mime_type="application/json",
                         temperature=0.2
                     )
@@ -123,6 +123,21 @@ class LLMService:
             except Exception as e:
                 logger.warning(f"Model {model_name} failed: {e}")
         return None
+
+    def call_llm_json(self, user_content: str, system_prompt: str = REVIEW_SYSTEM_PROMPT) -> Optional[dict]:
+        """Dual-provider execution: attempts primary provider (Groq/Gemini), with automatic fallback."""
+        data = None
+        if settings.LLM_PROVIDER.lower() == "groq":
+            data = self._call_groq(user_content, system_prompt)
+            if not data:
+                logger.info("Groq unavailable or failed; falling back to Gemini.")
+                data = self._call_gemini(user_content, system_prompt)
+        else:
+            data = self._call_gemini(user_content, system_prompt)
+            if not data and settings.GROQ_API_KEY:
+                logger.info("Gemini failed; falling back to Groq.")
+                data = self._call_groq(user_content, system_prompt)
+        return data
 
     def generate_review(
         self,
@@ -151,17 +166,7 @@ class LLMService:
 
 Review this code now. Follow all instructions and output the JSON object."""
 
-        data = None
-        if settings.LLM_PROVIDER.lower() == "groq":
-            data = self._call_groq(user_content)
-            if not data:
-                logger.info("Groq unavailable or failed; falling back to Gemini.")
-                data = self._call_gemini(user_content)
-        else:
-            data = self._call_gemini(user_content)
-            if not data and settings.GROQ_API_KEY:
-                logger.info("Gemini failed; falling back to Groq.")
-                data = self._call_groq(user_content)
+        data = self.call_llm_json(user_content, REVIEW_SYSTEM_PROMPT)
 
         if data:
             findings = []
@@ -192,8 +197,9 @@ Review this code now. Follow all instructions and output the JSON object."""
             )
 
         # Fallback if LLM failed
+        err_msg = "Could not contact LLM provider or parsing failed."
         return ReviewResponse(
-            summary=f"Review generation error: {str(last_error)}",
+            summary=f"Review generation error: {err_msg}",
             detected_language=language if language != "auto" else "plaintext",
             findings=[
                 ReviewFinding(
@@ -201,8 +207,8 @@ Review this code now. Follow all instructions and output the JSON object."""
                     severity="high",
                     category="bug",
                     title="Code Review Failed",
-                    description=f"Could not contact LLM provider. Details: {str(last_error)}",
-                    suggestion="Please verify your API key and network connection."
+                    description=f"{err_msg} Please verify your API key and network connection.",
+                    suggestion="Ensure GROQ_API_KEY or GEMINI_API_KEY is properly configured."
                 )
             ],
             memories_retrieved=memories,

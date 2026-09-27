@@ -16,6 +16,24 @@ class ReviewFinding(BaseModel):
         description="The specific team memory/convention cited, e.g. 'Team convention: All DB operations must use the Repository layer.'"
     )
 
+class ProposedFix(BaseModel):
+    file_name: Optional[str] = None
+    original_code: str = Field(description="Original submitted code snippet")
+    fixed_code: str = Field(description="Actionable corrected code implementing recommendations")
+    diff: str = Field(description="Unified diff between original and fixed code")
+    explanation: str = Field(description="Summary of changes and rationale")
+    validation_status: Literal["passed", "warning", "retried_and_fixed", "failed"] = "passed"
+    validation_checks: List[str] = []
+
+class TimelineStep(BaseModel):
+    step_id: str
+    node_name: str
+    title: str
+    description: str
+    status: Literal["completed", "running", "retrying", "failed", "skipped"] = "completed"
+    duration_ms: int = 0
+    details: Optional[dict] = None
+
 class ReviewRequest(BaseModel):
     code: str
     file_name: Optional[str] = None
@@ -30,6 +48,10 @@ class ReviewResponse(BaseModel):
     memories_retrieved: List[str] = []
     review_mode: Literal["memory_informed", "baseline_no_memory"] = "baseline_no_memory"
     bank_id: str
+    proposed_fix: Optional[ProposedFix] = None
+    timeline: List[TimelineStep] = []
+    pipeline_status: str = "completed"
+    retry_count: int = 0
 
 class DecisionRequest(BaseModel):
     bank_id: Optional[str] = None

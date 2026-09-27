@@ -13,6 +13,7 @@ from app.schemas import (
 )
 from app.services.hindsight_service import hindsight_service
 from app.services.llm_service import llm_service
+from app.agent import run_engram_pipeline
 from app.demo_scenarios import DEMO_SCENARIOS
 
 # Configure logging
@@ -41,6 +42,8 @@ def health_check():
     return {
         "status": "healthy",
         "app": "Engram",
+        "orchestration": "LangGraph (StateGraph with AST validation retry loops)",
+        "pipeline_stages": ["recall", "analysis", "fix", "validate", "security", "final_review"],
         "llm_provider": settings.LLM_PROVIDER,
         "llm_model": settings.GEMINI_MODEL,
         "hindsight_bank": settings.HINDSIGHT_BANK_ID,
@@ -76,20 +79,15 @@ def reset_team_memory(bank_id: Optional[str] = Query(None)):
 @app.post("/api/review", response_model=ReviewResponse)
 def review_code(req: ReviewRequest):
     target_bank = req.bank_id or settings.HINDSIGHT_BANK_ID
-    
-    memories = []
-    if not req.bypass_memory:
-        # Retrieve relevant team memories from Hindsight
-        query = f"Code review conventions, architectural standards, and team decisions for:\n{req.code[:400]}"
-        memories = hindsight_service.recall_memories(query=query, bank_id=target_bank)
+    logger.info(f"Initiating Engram LangGraph review pipeline for target bank '{target_bank}' (bypass_memory={req.bypass_memory})")
 
-    # Generate review using LLM
-    response = llm_service.generate_review(
+    # Run complete LangGraph agentic pipeline
+    response = run_engram_pipeline(
         code=req.code,
         file_name=req.file_name,
         language=req.language,
-        memories=memories,
-        bank_id=target_bank
+        bank_id=target_bank,
+        bypass_memory=req.bypass_memory
     )
     return response
 

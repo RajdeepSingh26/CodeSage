@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import Editor from '@monaco-editor/react';
 import confetti from 'canvas-confetti';
+import DiffViewer from './components/DiffViewer';
+import AgentTimeline from './components/AgentTimeline';
 import {
   Brain,
   Code2,
@@ -12,7 +14,11 @@ import {
   X,
   Trash2,
   BookOpen,
-  ChevronDown
+  ChevronDown,
+  GitPullRequest,
+  Activity,
+  Layers,
+  ShieldCheck
 } from 'lucide-react';
 
 const SUPPORTED_LANGUAGES = [
@@ -54,6 +60,7 @@ export default function App() {
   const [isResetting, setIsResetting] = useState(false);
   
   // UI Panels & Filters
+  const [activeRightTab, setActiveRightTab] = useState("findings"); // "findings" | "diff" | "pipeline"
   const [severityFilter, setSeverityFilter] = useState("all");
   const [showMemoryContext, setShowMemoryContext] = useState(false);
   const [showWhyMatters, setShowWhyMatters] = useState(false);
@@ -84,6 +91,7 @@ export default function App() {
     setReviewResult(null);
     setDetectedLanguage("");
     setReviewLatency(null);
+    setActiveRightTab("findings");
   };
 
   const handleReview = async () => {
@@ -440,274 +448,376 @@ export default function App() {
             </div>
           </div>
 
-          {/* 2. Compact Hindsight Memory Context Strip */}
-          {reviewResult && (
-            <div className={`mx-3 mt-2.5 p-2.5 rounded-lg border text-xs shrink-0 transition-all ${
-              reviewResult.review_mode === 'memory_informed'
-                ? 'bg-teal-950/20 border-teal-500/30 text-teal-200'
-                : 'bg-slate-900/60 border-white/[0.06] text-slate-400'
-            }`}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Brain
-                    size={14}
-                    className={reviewResult.review_mode === 'memory_informed' ? 'text-teal-400' : 'text-slate-500'}
-                  />
-                  <span className="font-semibold text-slate-200">
-                    {reviewResult.review_mode === 'memory_informed'
-                      ? `Hindsight: ${reviewResult.memories_retrieved.length} relevant team convention(s) applied`
-                      : 'Baseline Mode: Generic review — no team memory supplied'}
+          {/* Sub-Header Tabs: Findings | Proposed Fix (Diff) | Agent Pipeline */}
+          <div className="flex items-center justify-between px-3 py-1.5 border-b border-white/[0.06] bg-[#0c101a] shrink-0">
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setActiveRightTab("findings")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  activeRightTab === "findings"
+                    ? "bg-violet-950/80 text-violet-200 border border-violet-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                <Code2 size={13} />
+                <span>Findings</span>
+                {reviewResult && (
+                  <span className="text-[10px] font-mono px-1 rounded bg-violet-500/20 text-violet-300">
+                    {reviewResult.findings.length}
                   </span>
-                </div>
-                {reviewResult.memories_retrieved?.length > 0 && (
-                  <button
-                    onClick={() => setShowMemoryContext(!showMemoryContext)}
-                    className="text-[11px] text-teal-400 hover:underline flex items-center gap-0.5 font-medium"
-                  >
-                    <span>{showMemoryContext ? 'Hide' : 'View context'}</span>
-                    <ChevronDown size={11} className={`transition-transform ${showMemoryContext ? 'rotate-180' : ''}`} />
-                  </button>
                 )}
-              </div>
+              </button>
 
-              {showMemoryContext && reviewResult.memories_retrieved?.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-teal-500/20 space-y-1">
-                  {reviewResult.memories_retrieved.map((m, idx) => (
-                    <div key={idx} className="text-[11px] text-teal-300/90 font-mono bg-teal-950/40 p-1.5 rounded border border-teal-500/20">
-                      • {m}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 3. Interactive Filter Tabs */}
-          {reviewResult && (
-            <div className="flex items-center gap-1 px-3 pt-2.5 pb-1 border-b border-white/[0.04] shrink-0 text-xs">
               <button
-                onClick={() => setSeverityFilter("all")}
-                className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-all ${
-                  severityFilter === 'all'
-                    ? 'bg-slate-800 text-white font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
+                onClick={() => setActiveRightTab("diff")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  activeRightTab === "diff"
+                    ? "bg-emerald-950/80 text-emerald-200 border border-emerald-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
                 }`}
               >
-                All ({findingsList.length})
-              </button>
-              <button
-                onClick={() => setSeverityFilter("high")}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
-                  severityFilter === 'high'
-                    ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30'
-                    : 'text-slate-400 hover:text-rose-400'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> High ({highCount})
-              </button>
-              <button
-                onClick={() => setSeverityFilter("medium")}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
-                  severityFilter === 'medium'
-                    ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
-                    : 'text-slate-400 hover:text-amber-400'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Medium ({medCount})
-              </button>
-              <button
-                onClick={() => setSeverityFilter("low")}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
-                  severityFilter === 'low'
-                    ? 'bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30'
-                    : 'text-slate-400 hover:text-sky-400'
-                }`}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Low ({lowCount})
-              </button>
-            </div>
-          )}
-
-          {/* 4. Scrollable Compact Finding Cards */}
-          <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
-            {/* Empty Awaiting Submission State */}
-            {!reviewResult && !isReviewing && (
-              <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 text-slate-500">
-                <div className="w-10 h-10 rounded-xl bg-[#0f1320] border border-white/[0.07] flex items-center justify-center mb-3 text-slate-400 shadow-inner">
-                  <span className="text-sm text-slate-400 font-mono">◇</span>
-                </div>
-                <h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mb-1.5">
-                  No Review Yet
-                </h3>
-                <p className="text-[11.5px] max-w-xs text-slate-400 leading-relaxed">
-                  Paste code in the editor and click Review Code to begin.
-                </p>
-              </div>
-            )}
-
-            {/* In-Progress Loading State */}
-            {isReviewing && (
-              <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3">
-                <div className="w-12 h-12 rounded-xl bg-violet-600/15 border border-violet-500/30 flex items-center justify-center text-violet-400 animate-pulse shadow-sm">
-                  <Brain size={24} />
-                </div>
-                <h3 className="text-slate-200 font-bold text-xs">Analyzing Code & Consulting Memory...</h3>
-                <div className="text-[11px] text-slate-400 max-w-xs space-y-1 font-mono">
-                  <p>1. Parsing syntax & detecting language...</p>
-                  <p>2. Querying Hindsight persistent bank...</p>
-                  <p>3. Synthesizing team-specific review...</p>
-                </div>
-              </div>
-            )}
-
-            {/* Finding Cards List */}
-            {reviewResult && !isReviewing && (
-              <>
-                {displayedFindings.length === 0 ? (
-                  <div className="p-8 text-center text-slate-400 text-xs">
-                    No findings matching this filter.
-                  </div>
-                ) : (
-                  displayedFindings.map((f) => {
-                    const isAccepted = acceptedFindings.has(f.id);
-                    const isHigh = f.severity === 'high';
-                    const isMed = f.severity === 'medium';
-                    const isExpanded = expandedDetails.has(f.id);
-
-                    return (
-                      <div
-                        key={f.id}
-                        className={`rounded-lg p-3 transition-all border ${
-                          isHigh
-                            ? 'bg-[#100e14] border-l-4 border-l-rose-500 border-t-white/[0.06] border-r-white/[0.06] border-b-white/[0.06]'
-                            : isMed
-                            ? 'bg-[#121014] border-l-4 border-l-amber-500 border-t-white/[0.06] border-r-white/[0.06] border-b-white/[0.06]'
-                            : 'bg-[#0c101a] border-l-4 border-l-sky-500 border-t-white/[0.06] border-r-white/[0.06] border-b-white/[0.06]'
-                        }`}
-                      >
-                        {/* Card Header Row */}
-                        <div className="flex items-center justify-between gap-2 mb-1.5">
-                          <div className="flex items-center gap-1.5">
-                            {/* Strict Semantic Severity Badges */}
-                            <span
-                              className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${
-                                isHigh
-                                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                                  : isMed
-                                  ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
-                                  : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
-                              }`}
-                            >
-                              {isHigh ? '🔴 HIGH' : isMed ? '🟡 MEDIUM' : '🔵 LOW'}
-                            </span>
-
-                            <span className="text-[10px] font-semibold uppercase text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/[0.06]">
-                              {f.category}
-                            </span>
-
-                            {/* Distinct Teal Badge for Memory-Informed Findings */}
-                            {f.memory_used && (
-                              <span className="text-[10px] font-bold text-teal-300 bg-teal-500/15 border border-teal-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
-                                🧠 Learned Convention
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Title */}
-                        <h4 className="text-[13px] font-bold text-slate-100 mb-1">
-                          {f.title}
-                        </h4>
-
-                        {/* Concise Explanation */}
-                        <p className="text-xs text-slate-300 leading-relaxed mb-2">
-                          {f.description}
-                        </p>
-
-                        {/* Distinct Hindsight Citation Box */}
-                        {f.memory_used && f.memory_citation && (
-                          <div className="mb-2 p-2 rounded bg-teal-950/30 border border-teal-500/30 text-xs text-teal-300 flex items-start gap-2">
-                            <Brain size={13} className="text-teal-400 shrink-0 mt-0.5" />
-                            <div className="leading-snug">
-                              <span className="font-bold text-teal-200">Team Convention Applied: </span>
-                              "{f.memory_citation}"
-                              <span className="block text-[10px] text-teal-400/70 mt-0.5">
-                                Source: Previous team decision stored in Hindsight
-                              </span>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Concise Fix Block */}
-                        {f.suggestion && (
-                          <div className="mb-2 p-2 rounded bg-[#070910] border border-white/[0.05] text-[11.5px] font-mono text-emerald-300 overflow-x-auto">
-                            <span className="text-[10px] font-sans font-bold text-slate-400 uppercase block mb-0.5">
-                              Fix →
-                            </span>
-                            {f.suggestion}
-                          </div>
-                        )}
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-white/[0.05]">
-                          {isAccepted ? (
-                            <div className="flex items-center gap-1 text-[11px] font-semibold text-teal-400">
-                              <CheckCircle2 size={13} />
-                              <span>Saved to Hindsight Team Memory</span>
-                            </div>
-                          ) : (
-                            <>
-                              <button
-                                onClick={() => handleDismiss(f.id)}
-                                className="btn btn-xs h-6 min-h-0 bg-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-white/[0.06] text-[11px] font-medium rounded"
-                                title="Dismiss this finding for this review"
-                              >
-                                Dismiss
-                              </button>
-                              <button
-                                onClick={() => handleDecision(f, 'accept')}
-                                className="btn btn-xs h-6 min-h-0 bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-[11px] font-semibold rounded flex items-center gap-1"
-                                title="Accept: Persist this convention into Hindsight long-term team memory"
-                              >
-                                <Brain size={11} className="text-teal-400" />
-                                <span>Accept as Convention</span>
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })
+                <GitPullRequest size={13} />
+                <span>Proposed Fix & Diff</span>
+                {reviewResult?.proposed_fix && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_#34d399]" />
                 )}
-              </>
-            )}
+              </button>
 
-            {/* 5. "Why Hindsight Matters" Collapsible Box */}
-            <div className="rounded-lg bg-[#0c101a] border border-white/[0.06] p-2.5 text-xs">
-              <div
-                onClick={() => setShowWhyMatters(!showWhyMatters)}
-                className="flex items-center justify-between cursor-pointer text-slate-300 hover:text-white font-semibold select-none"
+              <button
+                onClick={() => setActiveRightTab("pipeline")}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                  activeRightTab === "pipeline"
+                    ? "bg-sky-950/80 text-sky-200 border border-sky-500/40 shadow-sm"
+                    : "text-slate-400 hover:text-slate-200"
+                }`}
               >
-                <span className="flex items-center gap-1.5 text-violet-400 text-[11.5px]">
-                  <Sparkles size={12} /> Why Hindsight Matters (Judge Summary)
-                </span>
-                <ChevronDown size={13} className={`transition-transform text-slate-400 ${showWhyMatters ? 'rotate-180' : ''}`} />
-              </div>
-
-              {showWhyMatters && (
-                <div className="mt-2 pt-2 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                  <div className="p-2 rounded bg-slate-900 border border-white/[0.05]">
-                    <span className="text-slate-400 font-bold block mb-0.5">Without Memory (Generic AI):</span>
-                    <p className="text-slate-400 leading-snug">"Consider using a repository pattern." (Isolated textbook feedback, repeats every review).</p>
-                  </div>
-                  <div className="p-2 rounded bg-teal-950/30 border border-teal-500/30">
-                    <span className="text-teal-400 font-bold block mb-0.5">With Hindsight:</span>
-                    <p className="text-teal-200 leading-snug">"Conflicts with established team convention. Your team previously decided all DB access must use Repository classes."</p>
-                  </div>
-                </div>
-              )}
+                <Activity size={13} />
+                <span>Agent Pipeline</span>
+                {reviewResult?.retry_count > 0 ? (
+                  <span className="badge badge-xs bg-amber-500/30 text-amber-300 border border-amber-500/40 text-[9px] font-bold">
+                    {reviewResult.retry_count} retry
+                  </span>
+                ) : reviewResult?.timeline ? (
+                  <span className="text-[10px] font-mono px-1 rounded bg-sky-500/20 text-sky-300">
+                    {reviewResult.timeline.length}
+                  </span>
+                ) : null}
+              </button>
             </div>
           </div>
+
+          {/* Body Content Area */}
+          {/* 1. Loading State */}
+          {isReviewing && (
+            <div className="flex-1 flex flex-col items-center justify-center p-6 space-y-4">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-violet-600/20 to-teal-500/20 border border-violet-500/30 flex items-center justify-center text-teal-400 animate-pulse shadow-lg">
+                <Brain size={28} />
+              </div>
+              <div className="text-center">
+                <h3 className="text-slate-200 font-bold text-sm">Executing LangGraph Agentic Pipeline</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Multi-agent coordination with AST verification</p>
+              </div>
+              <div className="w-full max-w-sm bg-[#0c101a] border border-white/[0.06] rounded-xl p-3.5 space-y-2 text-[11px] font-mono">
+                <div className="flex items-center gap-2 text-teal-300 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-teal-400"></span>
+                  <span>1. Recall Agent: Consulting Hindsight team memory</span>
+                </div>
+                <div className="flex items-center gap-2 text-violet-300 animate-pulse delay-75">
+                  <span className="w-2 h-2 rounded-full bg-violet-400"></span>
+                  <span>2. Analysis Agent: Multi-perspective code audit</span>
+                </div>
+                <div className="flex items-center gap-2 text-indigo-300 animate-pulse delay-150">
+                  <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                  <span>3. Fix Agent: Synthesizing replacement code & diff</span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-300 animate-pulse delay-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span>4. Validation Agent: AST parsing & retry loop check</span>
+                </div>
+                <div className="flex items-center gap-2 text-rose-300 animate-pulse delay-300">
+                  <span className="w-2 h-2 rounded-full bg-rose-400"></span>
+                  <span>5. Security Agent: Vulnerability & secret scan</span>
+                </div>
+                <div className="flex items-center gap-2 text-sky-300 animate-pulse delay-500">
+                  <span className="w-2 h-2 rounded-full bg-sky-400"></span>
+                  <span>6. Final Review Agent: Assembling verdict & citations</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 2. Empty State */}
+          {!reviewResult && !isReviewing && (
+            <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 text-slate-500">
+              <div className="w-10 h-10 rounded-xl bg-[#0f1320] border border-white/[0.07] flex items-center justify-center mb-3 text-slate-400 shadow-inner">
+                <span className="text-sm text-slate-400 font-mono">◇</span>
+              </div>
+              <h3 className="text-slate-200 font-bold text-xs uppercase tracking-wider mb-1.5">
+                No Review Yet
+              </h3>
+              <p className="text-[11.5px] max-w-xs text-slate-400 leading-relaxed">
+                Paste code in the editor and click Review Code to run the LangGraph agentic pipeline.
+              </p>
+            </div>
+          )}
+
+          {/* 3. Review Generated: Tab Panels */}
+          {reviewResult && !isReviewing && (
+            <>
+              {/* Tab Panel A: Proposed Fix & Diff */}
+              {activeRightTab === "diff" && (
+                <div className="flex-1 overflow-hidden">
+                  <DiffViewer
+                    proposedFix={reviewResult.proposed_fix}
+                    onApplyFix={(fixedCode) => setCode(fixedCode)}
+                    language={getMonacoLang()}
+                  />
+                </div>
+              )}
+
+              {/* Tab Panel B: Agent Pipeline Timeline */}
+              {activeRightTab === "pipeline" && (
+                <div className="flex-1 overflow-hidden">
+                  <AgentTimeline
+                    timeline={reviewResult.timeline || []}
+                    isReviewing={isReviewing}
+                  />
+                </div>
+              )}
+
+              {/* Tab Panel C: Findings Cards */}
+              {activeRightTab === "findings" && (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  {/* Compact Hindsight Memory Context Strip */}
+                  <div className={`mx-3 mt-2.5 p-2.5 rounded-lg border text-xs shrink-0 transition-all ${
+                    reviewResult.review_mode === 'memory_informed'
+                      ? 'bg-teal-950/20 border-teal-500/30 text-teal-200'
+                      : 'bg-slate-900/60 border-white/[0.06] text-slate-400'
+                  }`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Brain
+                          size={14}
+                          className={reviewResult.review_mode === 'memory_informed' ? 'text-teal-400' : 'text-slate-500'}
+                        />
+                        <span className="font-semibold text-slate-200">
+                          {reviewResult.review_mode === 'memory_informed'
+                            ? `Hindsight: ${reviewResult.memories_retrieved.length} relevant team convention(s) applied`
+                            : 'Baseline Mode: Generic review — no team memory supplied'}
+                        </span>
+                      </div>
+                      {reviewResult.memories_retrieved?.length > 0 && (
+                        <button
+                          onClick={() => setShowMemoryContext(!showMemoryContext)}
+                          className="text-[11px] text-teal-400 hover:underline flex items-center gap-0.5 font-medium"
+                        >
+                          <span>{showMemoryContext ? 'Hide' : 'View context'}</span>
+                          <ChevronDown size={11} className={`transition-transform ${showMemoryContext ? 'rotate-180' : ''}`} />
+                        </button>
+                      )}
+                    </div>
+
+                    {showMemoryContext && reviewResult.memories_retrieved?.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-teal-500/20 space-y-1">
+                        {reviewResult.memories_retrieved.map((m, idx) => (
+                          <div key={idx} className="text-[11px] text-teal-300/90 font-mono bg-teal-950/40 p-1.5 rounded border border-teal-500/20">
+                            • {m}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Interactive Filter Tabs */}
+                  <div className="flex items-center gap-1 px-3 pt-2.5 pb-1 border-b border-white/[0.04] shrink-0 text-xs">
+                    <button
+                      onClick={() => setSeverityFilter("all")}
+                      className={`px-2.5 py-0.5 rounded text-[11px] font-medium transition-all ${
+                        severityFilter === 'all'
+                          ? 'bg-slate-800 text-white font-bold'
+                          : 'text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      All ({findingsList.length})
+                    </button>
+                    <button
+                      onClick={() => setSeverityFilter("high")}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
+                        severityFilter === 'high'
+                          ? 'bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30'
+                          : 'text-slate-400 hover:text-rose-400'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span> High ({highCount})
+                    </button>
+                    <button
+                      onClick={() => setSeverityFilter("medium")}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
+                        severityFilter === 'medium'
+                          ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30'
+                          : 'text-slate-400 hover:text-amber-400'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span> Medium ({medCount})
+                    </button>
+                    <button
+                      onClick={() => setSeverityFilter("low")}
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition-all flex items-center gap-1 ${
+                        severityFilter === 'low'
+                          ? 'bg-sky-500/20 text-sky-300 font-bold border border-sky-500/30'
+                          : 'text-slate-400 hover:text-sky-400'
+                      }`}
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-sky-500"></span> Low ({lowCount})
+                    </button>
+                  </div>
+
+                  {/* Scrollable Compact Finding Cards */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+                    {displayedFindings.length === 0 ? (
+                      <div className="p-8 text-center text-slate-400 text-xs">
+                        No findings matching this filter.
+                      </div>
+                    ) : (
+                      displayedFindings.map((f) => {
+                        const isAccepted = acceptedFindings.has(f.id);
+                        const isHigh = f.severity === 'high';
+                        const isMed = f.severity === 'medium';
+
+                        return (
+                          <div
+                            key={f.id}
+                            className={`rounded-lg p-3 transition-all border ${
+                              isHigh
+                                ? 'bg-[#100e14] border-l-4 border-l-rose-500 border-t-white/[0.06] border-r-white/[0.06] border-b-white/[0.06]'
+                                : isMed
+                                ? 'bg-[#121014] border-l-4 border-l-amber-500 border-t-white/[0.06] border-r-white/[0.06] border-b-white/[0.06]'
+                                : 'bg-[#0c101a] border-l-4 border-l-sky-500 border-t-white/[0.06] border-r-white/[0.06] border-b-white/[0.06]'
+                            }`}
+                          >
+                            {/* Card Header Row */}
+                            <div className="flex items-center justify-between gap-2 mb-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded border ${
+                                    isHigh
+                                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                                      : isMed
+                                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
+                                      : 'bg-sky-500/20 text-sky-300 border-sky-500/40'
+                                  }`}
+                                >
+                                  {isHigh ? '🔴 HIGH' : isMed ? '🟡 MEDIUM' : '🔵 LOW'}
+                                </span>
+
+                                <span className="text-[10px] font-semibold uppercase text-slate-400 bg-slate-800/80 px-1.5 py-0.5 rounded border border-white/[0.06]">
+                                  {f.category}
+                                </span>
+
+                                {f.memory_used && (
+                                  <span className="text-[10px] font-bold text-teal-300 bg-teal-500/15 border border-teal-500/30 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                    🧠 Learned Convention
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Title */}
+                            <h4 className="text-[13px] font-bold text-slate-100 mb-1">
+                              {f.title}
+                            </h4>
+
+                            {/* Concise Explanation */}
+                            <p className="text-xs text-slate-300 leading-relaxed mb-2">
+                              {f.description}
+                            </p>
+
+                            {/* Distinct Hindsight Citation Box */}
+                            {f.memory_used && f.memory_citation && (
+                              <div className="mb-2 p-2 rounded bg-teal-950/30 border border-teal-500/30 text-xs text-teal-300 flex items-start gap-2">
+                                <Brain size={13} className="text-teal-400 shrink-0 mt-0.5" />
+                                <div className="leading-snug">
+                                  <span className="font-bold text-teal-200">Team Convention Applied: </span>
+                                  "{f.memory_citation}"
+                                  <span className="block text-[10px] text-teal-400/70 mt-0.5">
+                                    Source: Previous team decision stored in Hindsight
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Concise Fix Block */}
+                            {f.suggestion && (
+                              <div className="mb-2 p-2 rounded bg-[#070910] border border-white/[0.05] text-[11.5px] font-mono text-emerald-300 overflow-x-auto">
+                                <span className="text-[10px] font-sans font-bold text-slate-400 uppercase block mb-0.5">
+                                  Fix →
+                                </span>
+                                {f.suggestion}
+                              </div>
+                            )}
+
+                            {/* Action Buttons */}
+                            <div className="flex items-center justify-end gap-1.5 pt-1.5 border-t border-white/[0.05]">
+                              {isAccepted ? (
+                                <div className="flex items-center gap-1 text-[11px] font-semibold text-teal-400">
+                                  <CheckCircle2 size={13} />
+                                  <span>Saved to Hindsight Team Memory</span>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleDismiss(f.id)}
+                                    className="btn btn-xs h-6 min-h-0 bg-transparent hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-white/[0.06] text-[11px] font-medium rounded"
+                                    title="Dismiss this finding for this review"
+                                  >
+                                    Dismiss
+                                  </button>
+                                  <button
+                                    onClick={() => handleDecision(f, 'accept')}
+                                    className="btn btn-xs h-6 min-h-0 bg-teal-600/20 hover:bg-teal-600/30 text-teal-300 border border-teal-500/40 text-[11px] font-semibold rounded flex items-center gap-1"
+                                    title="Accept: Persist this convention into Hindsight long-term team memory"
+                                  >
+                                    <Brain size={11} className="text-teal-400" />
+                                    <span>Accept as Convention</span>
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    {/* "Why Hindsight Matters" Collapsible Box */}
+                    <div className="rounded-lg bg-[#0c101a] border border-white/[0.06] p-2.5 text-xs">
+                      <div
+                        onClick={() => setShowWhyMatters(!showWhyMatters)}
+                        className="flex items-center justify-between cursor-pointer text-slate-300 hover:text-white font-semibold select-none"
+                      >
+                        <span className="flex items-center gap-1.5 text-violet-400 text-[11.5px]">
+                          <Sparkles size={12} /> Why Hindsight Matters (Judge Summary)
+                        </span>
+                        <ChevronDown size={13} className={`transition-transform text-slate-400 ${showWhyMatters ? 'rotate-180' : ''}`} />
+                      </div>
+
+                      {showWhyMatters && (
+                        <div className="mt-2 pt-2 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                          <div className="p-2 rounded bg-slate-900 border border-white/[0.05]">
+                            <span className="text-slate-400 font-bold block mb-0.5">Without Memory (Generic AI):</span>
+                            <p className="text-slate-400 leading-snug">"Consider using a repository pattern." (Isolated textbook feedback, repeats every review).</p>
+                          </div>
+                          <div className="p-2 rounded bg-teal-950/30 border border-teal-500/30">
+                            <span className="text-teal-400 font-bold block mb-0.5">With Hindsight:</span>
+                            <p className="text-teal-200 leading-snug">"Conflicts with established team convention. Your team previously decided all DB access must use Repository classes."</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </section>
       </main>
 

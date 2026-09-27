@@ -90,3 +90,29 @@ def get_items():
     assert len(review_data["memories_retrieved"]) > 0
     assert review_data["review_mode"] == "memory_informed"
 
+def test_agent_pipeline_diff_and_timeline():
+    code = "def get_active_users():\n    return [u for u in users if u.is_active]\n"
+    res = client.post("/api/review", json={
+        "code": code,
+        "file_name": "users.py",
+        "language": "python",
+        "bypass_memory": True
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert "timeline" in data
+    assert len(data["timeline"]) >= 4
+    # Check that key pipeline nodes executed
+    nodes = [step["node_name"] for step in data["timeline"]]
+    assert "recall_node" in nodes
+    assert "analysis_node" in nodes
+    assert "fix_node" in nodes
+    assert "validation_node" in nodes
+    assert "final_review_node" in nodes
+    
+    # Check proposed fix structure
+    assert data["proposed_fix"] is not None
+    assert "fixed_code" in data["proposed_fix"]
+    assert "diff" in data["proposed_fix"]
+    assert "validation_status" in data["proposed_fix"]
+
