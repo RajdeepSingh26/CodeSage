@@ -78,7 +78,7 @@ def review_code(req: ReviewRequest):
     memories = []
     if not req.bypass_memory:
         # Retrieve relevant team memories from Hindsight
-        query = f"Code conventions, architectural decisions, and review rules for {req.file_name}:\n{req.code[:400]}"
+        query = f"Code review conventions, architectural standards, and team decisions for:\n{req.code[:400]}"
         memories = hindsight_service.recall_memories(query=query, bank_id=target_bank)
 
     # Generate review using LLM

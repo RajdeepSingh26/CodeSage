@@ -9,141 +9,53 @@ import {
   XCircle,
   RotateCcw,
   RefreshCw,
+  Search,
+  X,
   Layers,
-  BookOpen,
-  ArrowRight,
-  Database,
-  Shield,
-  Zap,
-  Check,
-  AlertTriangle,
-  Info
+  ChevronDown,
+  Trash2,
+  BookOpen
 } from 'lucide-react';
-import './App.css';
 
-const DEFAULT_SCENARIOS = [
-  {
-    id: "scenario-1",
-    title: "Step 1: First PR (Establish Convention)",
-    subtitle: "Direct database access in API layer.",
-    file_name: "user_service.py",
-    language: "python",
-    code: `from fastapi import APIRouter, HTTPException
-import sqlite3
-
-router = APIRouter()
-
-# User Registration Endpoint
-@router.post("/users")
-def register_user(username: str, email: str):
-    # Direct database connection inside route handler
-    conn = sqlite3.connect("production.db")
-    cursor = conn.cursor()
-    
-    # Executing raw SQL directly in service logic
-    cursor.execute(
-        "INSERT INTO users (username, email) VALUES (?, ?)", 
-        (username, email)
-    )
-    conn.commit()
-    user_id = cursor.lastrowid
-    conn.close()
-    
-    return {"status": "created", "user_id": user_id}
-`
-  },
-  {
-    id: "scenario-2",
-    title: "Step 2: Second PR (Hindsight In Action!)",
-    subtitle: "New developer submits similar direct DB code.",
-    file_name: "order_service.py",
-    language: "python",
-    code: `from fastapi import APIRouter, HTTPException
-import sqlite3
-
-router = APIRouter()
-
-@router.post("/orders/checkout")
-def checkout_cart(cart_id: str, user_id: str, amount: float):
-    # Notice: Another developer accessing database directly in the controller
-    db = sqlite3.connect("production.db")
-    cur = db.cursor()
-    
-    cur.execute(
-        "INSERT INTO orders (cart_id, user_id, total) VALUES (?, ?, ?)",
-        (cart_id, user_id, amount)
-    )
-    db.commit()
-    order_id = cur.lastrowid
-    db.close()
-    
-    return {"order_id": order_id, "amount": amount, "status": "paid"}
-`
-  },
-  {
-    id: "scenario-3",
-    title: "Step 3: Security & Exception Standards",
-    subtitle: "Hardcoded secret and generic catch block.",
-    file_name: "payment_gateway.py",
-    language: "python",
-    code: `import requests
-
-def process_stripe_payment(card_token: str, amount_cents: int):
-    # Hardcoded fallback key and raw try-except block
-    API_SECRET = "sk_live_9384209182390123"
-    
-    try:
-        resp = requests.post(
-            "https://api.stripe.com/v1/charges",
-            headers={"Authorization": f"Bearer {API_SECRET}"},
-            data={"amount": amount_cents, "currency": "usd", "source": card_token}
-        )
-        return resp.json()
-    except Exception as e:
-        # Generic catch-all masking error details
-        print("Payment error occurred:", e)
-        return None
-`
-  }
+const SUPPORTED_LANGUAGES = [
+  { id: "auto", label: "✨ Auto-Detect (Any Language)" },
+  { id: "python", label: "Python" },
+  { id: "typescript", label: "TypeScript" },
+  { id: "javascript", label: "JavaScript" },
+  { id: "go", label: "Go" },
+  { id: "rust", label: "Rust" },
+  { id: "java", label: "Java" },
+  { id: "cpp", label: "C++" },
+  { id: "csharp", label: "C#" },
+  { id: "php", label: "PHP" },
+  { id: "ruby", label: "Ruby" },
+  { id: "sql", label: "SQL" },
+  { id: "shell", label: "Bash / Shell" },
+  { id: "html", label: "HTML" },
+  { id: "css", label: "CSS" }
 ];
 
 export default function App() {
-  const [scenarios, setScenarios] = useState(DEFAULT_SCENARIOS);
-  const [activeScenarioId, setActiveScenarioId] = useState("scenario-1");
-  const [code, setCode] = useState(DEFAULT_SCENARIOS[0].code);
-  const [fileName, setFileName] = useState(DEFAULT_SCENARIOS[0].file_name);
-  const [language, setLanguage] = useState(DEFAULT_SCENARIOS[0].language);
-
+  const [code, setCode] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState("auto");
+  const [detectedLanguage, setDetectedLanguage] = useState("");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
+  
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
 
   const [memories, setMemories] = useState([]);
   const [isMemoriesLoading, setIsMemoriesLoading] = useState(false);
+  const [isMemoryDrawerOpen, setIsMemoryDrawerOpen] = useState(false);
+  const [memorySearch, setMemorySearch] = useState("");
+  
   const [acceptedFindings, setAcceptedFindings] = useState(new Set());
   const [rejectedFindings, setRejectedFindings] = useState(new Set());
   const [isResetting, setIsResetting] = useState(false);
-  const [bankId, setBankId] = useState("codebase-memory-team-default");
 
-  // Fetch initial scenarios and memories
   useEffect(() => {
-    fetchScenarios();
     fetchMemories();
   }, []);
-
-  const fetchScenarios = async () => {
-    try {
-      const res = await fetch('/api/scenarios');
-      if (res.ok) {
-        const data = await res.json();
-        if (data && data.length > 0) {
-          setScenarios(data);
-        }
-      }
-    } catch (err) {
-      console.warn("Using fallback default scenarios");
-    }
-  };
 
   const fetchMemories = async () => {
     setIsMemoriesLoading(true);
@@ -152,7 +64,6 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         setMemories(data.memories || []);
-        if (data.bank_id) setBankId(data.bank_id);
       }
     } catch (err) {
       console.error("Failed to fetch memories:", err);
@@ -161,35 +72,37 @@ export default function App() {
     }
   };
 
-  const selectScenario = (sc) => {
-    setActiveScenarioId(sc.id);
-    setCode(sc.code);
-    setFileName(sc.file_name);
-    setLanguage(sc.language || "python");
-    setReviewResult(null);
-  };
-
   const handleReview = async () => {
+    if (!code.trim()) {
+      alert("Please paste or write some code to review.");
+      return;
+    }
+
     setIsReviewing(true);
+    setReviewResult(null);
+
     try {
       const res = await fetch('/api/review', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           code,
-          file_name: fileName,
-          language,
+          language: selectedLanguage,
           bypass_memory: !memoryEnabled
         })
       });
+
       if (res.ok) {
         const data = await res.json();
         setReviewResult(data);
+        if (data.detected_language) {
+          setDetectedLanguage(data.detected_language);
+        }
       } else {
-        alert("Review failed. Please check backend logs.");
+        alert("Review failed. Please check server logs.");
       }
     } catch (err) {
-      alert(`Error calling review API: ${err.message}`);
+      alert(`Error calling review service: ${err.message}`);
     } finally {
       setIsReviewing(false);
     }
@@ -208,19 +121,19 @@ export default function App() {
           feedback_rule: `Team Convention [${finding.category}]: ${finding.title}. ${finding.description}`
         })
       });
+
       if (res.ok) {
         if (decision === 'accept') {
           setAcceptedFindings((prev) => new Set(prev).add(finding.id));
           confetti({
-            particleCount: 80,
-            spread: 60,
+            particleCount: 70,
+            spread: 50,
             origin: { y: 0.6 }
           });
         } else {
           setRejectedFindings((prev) => new Set(prev).add(finding.id));
         }
-        // Refresh memory panel
-        setTimeout(fetchMemories, 800);
+        setTimeout(fetchMemories, 600);
       }
     } catch (err) {
       alert(`Failed to save decision: ${err.message}`);
@@ -228,7 +141,7 @@ export default function App() {
   };
 
   const handleResetBank = async () => {
-    if (!window.confirm("Are you sure you want to reset Hindsight memory for a fresh demo run?")) return;
+    if (!window.confirm("Are you sure you want to clear all team memories for a fresh start?")) return;
     setIsResetting(true);
     try {
       const res = await fetch('/api/memory/reset', { method: 'POST' });
@@ -237,7 +150,6 @@ export default function App() {
         setAcceptedFindings(new Set());
         setRejectedFindings(new Set());
         setReviewResult(null);
-        alert("Hindsight memory bank reset successfully!");
       }
     } catch (err) {
       alert("Failed to reset memory bank.");
@@ -246,271 +158,332 @@ export default function App() {
     }
   };
 
+  const filteredMemories = memories.filter(m =>
+    (m.text || "").toLowerCase().includes(memorySearch.toLowerCase()) ||
+    (m.fact_type || "").toLowerCase().includes(memorySearch.toLowerCase())
+  );
+
+  const getMonacoLang = () => {
+    if (selectedLanguage !== "auto") return selectedLanguage;
+    if (detectedLanguage && detectedLanguage !== "plaintext") return detectedLanguage;
+    return "python";
+  };
+
   return (
-    <div className="app-container">
-      {/* Top Header */}
-      <header className="app-header">
-        <div className="logo-section">
-          <div className="logo-icon-box">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
+      {/* Sleek Minimalist Navbar */}
+      <header className="navbar bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 md:px-8 py-2 justify-between z-30 sticky top-0">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-violet-600 via-indigo-600 to-emerald-400 flex items-center justify-center text-white shadow-md shadow-violet-500/20">
             <Brain size={20} />
           </div>
-          <div className="title-wrap">
-            <h1>CODEBASE MEMORY</h1>
-            <p>An AI Code Review Agent That Learns Your Team</p>
+          <div>
+            <h1 className="text-base md:text-lg font-bold tracking-tight bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent leading-none">
+              Codebase Memory
+            </h1>
+            <p className="text-[11px] text-slate-400 font-medium hidden sm:block">
+              AI code review that learns team conventions
+            </p>
           </div>
         </div>
 
-        <div className="header-badges">
-          <div className="status-pill">
-            <span className="status-dot dot-green animate-pulse-slow"></span>
-            <span>Hindsight Cloud Connected</span>
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Memory Toggle */}
+          <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700/60 rounded-lg px-2.5 py-1 text-xs font-medium">
+            <span className="text-slate-400 hidden sm:inline">Memory Layer:</span>
+            <input
+              type="checkbox"
+              className="toggle toggle-xs toggle-success"
+              checked={memoryEnabled}
+              onChange={(e) => setMemoryEnabled(e.target.checked)}
+              title="Toggle persistent Hindsight memory"
+            />
+            <span className={`text-[11px] font-bold ${memoryEnabled ? 'text-emerald-400' : 'text-slate-400'}`}>
+              {memoryEnabled ? 'ACTIVE' : 'OFF'}
+            </span>
           </div>
 
-          <div className="status-pill">
-            <span className="status-dot dot-purple"></span>
-            <span>Gemini Flash</span>
-          </div>
-
+          {/* Stored Memories Drawer Button */}
           <button
-            onClick={handleResetBank}
-            disabled={isResetting}
-            className="btn-icon-subtle"
-            title="Reset Hindsight bank for a clean demo presentation"
+            onClick={() => setIsMemoryDrawerOpen(true)}
+            className="btn btn-sm bg-slate-800 hover:bg-slate-700 text-slate-200 border-slate-700 rounded-lg flex items-center gap-2 text-xs font-semibold"
           >
-            <RotateCcw size={12} />
-            <span>{isResetting ? "Resetting..." : "Reset Bank"}</span>
+            <BookOpen size={14} className="text-emerald-400" />
+            <span className="hidden xs:inline">Team Memory</span>
+            <span className="badge badge-sm badge-success text-[10px] font-bold px-1.5 py-0.5">
+              {memories.length}
+            </span>
           </button>
         </div>
       </header>
 
-      {/* Demo Scenario Stepper & Memory Toggle */}
-      <div className="scenario-bar">
-        <div className="scenario-pills">
-          <span style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', marginRight: '4px' }}>
-            Demo Tour:
-          </span>
-          {scenarios.map((sc) => (
-            <button
-              key={sc.id}
-              onClick={() => selectScenario(sc)}
-              className={`scenario-btn ${activeScenarioId === sc.id ? 'active' : ''}`}
-            >
-              <Zap size={13} color={activeScenarioId === sc.id ? '#a855f7' : '#94a3b8'} />
-              <span>{sc.title}</span>
-            </button>
-          ))}
-        </div>
+      {/* Main Responsive Split Layout */}
+      <main className="flex-1 grid grid-cols-1 lg:grid-cols-2 gap-4 p-3 md:p-6 max-w-7xl mx-auto w-full">
+        {/* Left Column: Code Input & Editor */}
+        <section className="bg-slate-900/70 border border-slate-800/80 rounded-2xl flex flex-col overflow-hidden shadow-xl shadow-black/40 min-h-[460px] lg:min-h-0">
+          {/* Editor Header Bar */}
+          <div className="bg-slate-900 border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2 flex-1 min-w-[200px]">
+              <Code2 size={16} className="text-violet-400" />
+              <div className="relative">
+                <select
+                  value={selectedLanguage}
+                  onChange={(e) => setSelectedLanguage(e.target.value)}
+                  className="select select-bordered select-xs bg-slate-800 text-slate-200 border-slate-700 text-xs rounded-lg focus:outline-none focus:border-violet-500 pr-7"
+                >
+                  {SUPPORTED_LANGUAGES.map((lang) => (
+                    <option key={lang.id} value={lang.id}>
+                      {lang.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-        <div className="toggle-container">
-          <span>Persistent Memory Layer:</span>
-          <div
-            className={`toggle-switch ${memoryEnabled ? 'on' : ''}`}
-            onClick={() => setMemoryEnabled(!memoryEnabled)}
-            title="Toggle Hindsight memory to compare with/without memory reviews"
-          >
-            <div className="toggle-slider"></div>
-          </div>
-          <span style={{ color: memoryEnabled ? '#10b981' : '#ef4444', fontWeight: '700' }}>
-            {memoryEnabled ? "HINDSIGHT ON" : "BASELINE ONLY"}
-          </span>
-        </div>
-      </div>
-
-      {/* Main 3-Column IDE Workspace */}
-      <main className="main-workspace">
-        {/* Left: Code Editor */}
-        <section className="panel">
-          <div className="panel-header">
-            <div className="file-tab">
-              <Code2 size={14} color="#38bdf8" />
-              <span>{fileName}</span>
+              {detectedLanguage && selectedLanguage === "auto" && (
+                <span className="badge badge-outline badge-xs border-violet-500/50 text-violet-300 text-[10px] uppercase font-bold tracking-wider">
+                  Detected: {detectedLanguage}
+                </span>
+              )}
             </div>
-            <span style={{ fontSize: '11px', color: '#64748b' }}>
-              Language: <strong style={{ color: '#94a3b8' }}>{language.toUpperCase()}</strong>
-            </span>
+
+            <div className="flex items-center gap-2">
+              {code && (
+                <button
+                  onClick={() => { setCode(""); setReviewResult(null); }}
+                  className="btn btn-ghost btn-xs text-slate-400 hover:text-slate-200"
+                  title="Clear editor"
+                >
+                  <Trash2 size={13} />
+                  <span>Clear</span>
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="editor-body">
+          {/* Monaco Code Editor */}
+          <div className="flex-1 relative min-h-[320px]">
             <Editor
               height="100%"
-              language={language}
+              language={getMonacoLang()}
               theme="vs-dark"
               value={code}
               onChange={(val) => setCode(val || "")}
+              placeholder="// Paste any code here in any language (Python, TypeScript, Go, Java, Rust, SQL, etc.)...\n// Then click 'Review Code' to test team memory conventions."
               options={{
                 fontSize: 13,
+                fontFamily: "'JetBrains Mono', monospace",
                 minimap: { enabled: false },
                 scrollBeyondLastLine: false,
                 lineNumbers: "on",
                 automaticLayout: true,
-                padding: { top: 12, bottom: 12 }
+                padding: { top: 14, bottom: 14 },
+                backgroundColor: "#090d16"
               }}
             />
           </div>
 
-          <div className="panel-footer">
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Press <strong>Submit</strong> to review with active conventions
-            </div>
+          {/* Editor Footer / Submit Bar */}
+          <div className="bg-slate-900 border-t border-slate-800 px-4 py-3 flex items-center justify-between">
+            <span className="text-xs text-slate-500 hidden sm:inline">
+              Accepts any programming language & enforces stored team practices
+            </span>
             <button
               onClick={handleReview}
-              disabled={isReviewing}
-              className="btn-primary"
+              disabled={isReviewing || !code.trim()}
+              className="btn btn-sm btn-primary bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border-none text-white font-semibold shadow-md shadow-violet-600/30 rounded-lg ml-auto flex items-center gap-2"
             >
               {isReviewing ? (
                 <>
                   <RefreshCw size={14} className="animate-spin" />
-                  <span>Reviewing with Hindsight...</span>
+                  <span>Reviewing with Memory...</span>
                 </>
               ) : (
                 <>
                   <Sparkles size={15} />
-                  <span>Submit for Review</span>
+                  <span>Review Code</span>
                 </>
               )}
             </button>
           </div>
         </section>
 
-        {/* Center: AI Review Findings Console */}
-        <section className="review-panel">
-          <div className="panel-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={15} color="#c084fc" />
-              <span>AI REVIEW FINDINGS</span>
+        {/* Right Column: AI Review Findings */}
+        <section className="bg-slate-900/70 border border-slate-800/80 rounded-2xl flex flex-col overflow-hidden shadow-xl shadow-black/40 min-h-[460px] lg:min-h-0">
+          <div className="bg-slate-900 border-b border-slate-800/80 px-4 py-2.5 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-wide text-slate-300">
+              <Layers size={15} className="text-emerald-400" />
+              <span>REVIEW FINDINGS</span>
             </div>
             {reviewResult && (
-              <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                Found: <strong>{reviewResult.findings.length} issues</strong>
+              <span className="badge badge-sm badge-neutral text-xs text-slate-400">
+                {reviewResult.findings.length} issue{reviewResult.findings.length === 1 ? '' : 's'} identified
               </span>
             )}
           </div>
 
-          <div className="review-content">
+          <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            {/* Empty State */}
             {!reviewResult && !isReviewing && (
-              <div className="empty-state">
-                <Code2 size={44} strokeWidth={1.2} />
-                <h3 style={{ color: '#f1f5f9', fontSize: '15px' }}>Ready for Code Review</h3>
-                <p style={{ maxWidth: '340px', fontSize: '12px' }}>
-                  Select one of the demo scenarios above or write your own code, then click <strong>Submit for Review</strong>.
+              <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 text-slate-500">
+                <div className="w-14 h-14 rounded-2xl bg-slate-800/50 border border-slate-700/50 flex items-center justify-center mb-3 text-slate-400">
+                  <Code2 size={28} />
+                </div>
+                <h3 className="text-slate-200 font-semibold text-sm mb-1">Awaiting Code Submission</h3>
+                <p className="text-xs max-w-xs text-slate-400">
+                  Paste or write any code in the editor, then click <strong>Review Code</strong> to run analysis with persistent team conventions.
                 </p>
               </div>
             )}
 
+            {/* Loading State */}
             {isReviewing && (
-              <div className="empty-state">
-                <Brain size={48} className="animate-pulse-slow" color="#8b5cf6" />
-                <h3 style={{ color: '#f1f5f9', fontSize: '15px' }}>Consulting Hindsight Memory Bank...</h3>
-                <p style={{ maxWidth: '320px', fontSize: '12px' }}>
-                  Recalling relevant team conventions, past architectural decisions, and accepted review patterns.
+              <div className="h-full min-h-[300px] flex flex-col items-center justify-center text-center p-6 space-y-3">
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl bg-violet-600/10 border border-violet-500/30 flex items-center justify-center text-violet-400 animate-pulse">
+                    <Brain size={30} />
+                  </div>
+                </div>
+                <h3 className="text-slate-200 font-semibold text-sm">Consulting Team Memory...</h3>
+                <p className="text-xs text-slate-400 max-w-xs">
+                  Recalling relevant engineering conventions and past decisions from Hindsight Cloud.
                 </p>
               </div>
             )}
 
+            {/* Review Findings Output */}
             {reviewResult && !isReviewing && (
               <>
-                {/* Review Mode Banner */}
-                <div className={`review-banner ${reviewResult.review_mode === 'memory_informed' ? 'banner-memory memory-glow' : 'banner-baseline'}`}>
-                  {reviewResult.review_mode === 'memory_informed' ? (
-                    <Brain size={22} color="#10b981" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  ) : (
-                    <Zap size={22} color="#94a3b8" style={{ flexShrink: 0, marginTop: '2px' }} />
-                  )}
-                  <div>
-                    <h4 style={{ fontSize: '13px', fontWeight: '700', color: reviewResult.review_mode === 'memory_informed' ? '#34d399' : '#cbd5e1' }}>
-                      {reviewResult.review_mode === 'memory_informed'
-                        ? "INFORMED BY HINDSIGHT TEAM MEMORY"
-                        : "STANDARD BASELINE REVIEW (WITHOUT MEMORY)"}
-                    </h4>
-                    <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '2px' }}>
+                {/* Mode Alert Header */}
+                <div
+                  className={`p-3.5 rounded-xl border flex items-start gap-3 ${
+                    reviewResult.review_mode === 'memory_informed'
+                      ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                      : 'bg-slate-800/40 border-slate-700/60 text-slate-300'
+                  }`}
+                >
+                  <Brain
+                    size={20}
+                    className={reviewResult.review_mode === 'memory_informed' ? 'text-emerald-400 shrink-0 mt-0.5' : 'text-slate-400 shrink-0 mt-0.5'}
+                  />
+                  <div className="text-xs flex-1">
+                    <div className="font-bold flex items-center justify-between">
+                      <span>
+                        {reviewResult.review_mode === 'memory_informed'
+                          ? 'Informed by Team Memory'
+                          : 'Baseline Review (No Memories Applied)'}
+                      </span>
+                      {reviewResult.detected_language && (
+                        <span className="text-[10px] bg-slate-800/80 px-2 py-0.5 rounded font-mono text-slate-300">
+                          {reviewResult.detected_language}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-slate-400 mt-1 leading-relaxed">
                       {reviewResult.summary}
                     </p>
                     {reviewResult.memories_retrieved && reviewResult.memories_retrieved.length > 0 && (
-                      <div style={{ marginTop: '8px', fontSize: '11px', color: '#6ee7b7' }}>
-                        Retrieved {reviewResult.memories_retrieved.length} relevant team convention(s) from Hindsight.
-                      </div>
+                      <p className="text-emerald-400 text-[11px] mt-1.5 font-medium">
+                        ✓ Retrieved {reviewResult.memories_retrieved.length} relevant convention(s) from persistent memory
+                      </p>
                     )}
                   </div>
                 </div>
 
-                {/* Findings List */}
-                {reviewResult.findings.map((finding) => {
-                  const isAccepted = acceptedFindings.has(finding.id);
-                  const isRejected = rejectedFindings.has(finding.id);
+                {/* Individual Finding Cards */}
+                {reviewResult.findings.map((f) => {
+                  const isAccepted = acceptedFindings.has(f.id);
+                  const isRejected = rejectedFindings.has(f.id);
 
                   return (
                     <div
-                      key={finding.id}
-                      className={`finding-card ${finding.memory_used ? 'memory-active' : ''}`}
+                      key={f.id}
+                      className={`p-4 rounded-xl border transition-all ${
+                        f.memory_used
+                          ? 'bg-slate-900 border-emerald-500/50 shadow-lg shadow-emerald-500/5'
+                          : 'bg-slate-900/90 border-slate-800'
+                      }`}
                     >
-                      <div className="finding-header">
-                        <div className="badges-row">
-                          <span className={`badge badge-${finding.severity}`}>
-                            {finding.severity}
+                      <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`badge badge-xs font-bold uppercase tracking-wider py-2 px-2.5 ${
+                              f.severity === 'high'
+                                ? 'badge-error text-white'
+                                : f.severity === 'medium'
+                                ? 'badge-warning text-black font-extrabold'
+                                : 'badge-info text-white'
+                            }`}
+                          >
+                            {f.severity}
                           </span>
-                          <span className="badge badge-category">
-                            {finding.category}
+                          <span className="badge badge-xs badge-neutral border-slate-700 text-slate-300 py-2 px-2">
+                            {f.category}
                           </span>
-                          {finding.memory_used && (
-                            <span className="badge memory-tag-badge">
-                              🧠 Learned Convention
+                          {f.memory_used && (
+                            <span className="badge badge-xs bg-emerald-500/20 text-emerald-300 border-emerald-500/40 py-2 px-2 font-bold">
+                              🧠 Learned Rule
                             </span>
                           )}
                         </div>
                       </div>
 
-                      <div className="finding-title">{finding.title}</div>
+                      <h4 className="text-sm font-semibold text-slate-100 mb-1.5">
+                        {f.title}
+                      </h4>
 
-                      {/* Explicit Memory Citation Callout */}
-                      {finding.memory_used && finding.memory_citation && (
-                        <div className="memory-citation-box">
-                          <Brain size={14} color="#10b981" style={{ flexShrink: 0 }} />
+                      {/* Memory Citation Highlight */}
+                      {f.memory_used && f.memory_citation && (
+                        <div className="mb-2.5 p-2.5 rounded-lg bg-emerald-950/40 border-l-2 border-emerald-400 text-xs text-emerald-300 flex items-start gap-2">
+                          <Brain size={14} className="shrink-0 mt-0.5 text-emerald-400" />
                           <div>
-                            <strong>Team Convention Applied:</strong> "{finding.memory_citation}"
+                            <span className="font-semibold text-emerald-200">Established Team Convention: </span>
+                            "{f.memory_citation}"
                           </div>
                         </div>
                       )}
 
-                      <div className="finding-desc">{finding.description}</div>
+                      <p className="text-xs text-slate-300 leading-relaxed mb-3">
+                        {f.description}
+                      </p>
 
-                      {finding.suggestion && (
-                        <div className="finding-suggestion">
-                          <div style={{ fontSize: '10.5px', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase', fontWeight: '700' }}>
-                            Actionable Suggestion:
-                          </div>
-                          <code>{finding.suggestion}</code>
+                      {f.suggestion && (
+                        <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-xs text-emerald-300 font-mono overflow-x-auto mb-3">
+                          <span className="text-[10px] text-slate-500 uppercase font-sans font-bold block mb-1">
+                            Suggestion:
+                          </span>
+                          {f.suggestion}
                         </div>
                       )}
 
-                      {/* Accept/Reject Interactive Decision Loop */}
-                      <div className="finding-actions">
+                      {/* Interactive Learning Actions */}
+                      <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
                         {isAccepted ? (
-                          <div className="decision-saved-badge">
-                            <CheckCircle2 size={15} color="#10b981" />
-                            <span>Accepted & Saved as Team Convention!</span>
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400">
+                            <CheckCircle2 size={15} />
+                            <span>Saved as Team Convention!</span>
                           </div>
                         ) : isRejected ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#fb7185', fontSize: '11.5px', fontWeight: '600' }}>
-                            <XCircle size={15} color="#fb7185" />
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-rose-400">
+                            <XCircle size={15} />
                             <span>Marked as Team Exception</span>
                           </div>
                         ) : (
                           <>
                             <button
-                              onClick={() => handleDecision(finding, 'reject')}
-                              className="btn-decision btn-reject"
-                              title="Reject feedback: Tell the agent this pattern is allowed"
+                              onClick={() => handleDecision(f, 'reject')}
+                              className="btn btn-xs bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 border-slate-700 font-medium rounded-lg"
+                              title="Reject: Allow this pattern in this context"
                             >
-                              <XCircle size={13} />
+                              <XCircle size={12} />
                               <span>Reject Exception</span>
                             </button>
                             <button
-                              onClick={() => handleDecision(finding, 'accept')}
-                              className="btn-decision btn-accept"
-                              title="Accept feedback: Persist this convention into Hindsight long-term memory"
+                              onClick={() => handleDecision(f, 'accept')}
+                              className="btn btn-xs bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-emerald-500/40 font-semibold rounded-lg"
+                              title="Accept: Persist this convention into Hindsight memory"
                             >
-                              <CheckCircle2 size={13} />
-                              <span>Accept as Team Convention</span>
+                              <CheckCircle2 size={12} />
+                              <span>Accept as Convention</span>
                             </button>
                           </>
                         )}
@@ -522,64 +495,96 @@ export default function App() {
             )}
           </div>
         </section>
-
-        {/* Right: Live Hindsight Memory Inspector */}
-        <section className="memory-panel">
-          <div className="panel-header">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Brain size={15} color="#10b981" />
-              <span>TEAM MEMORY BANK</span>
-            </div>
-            <button
-              onClick={fetchMemories}
-              className="btn-icon-subtle"
-              title="Refresh memories from Hindsight Cloud"
-            >
-              <RefreshCw size={11} className={isMemoriesLoading ? "animate-spin" : ""} />
-              <span>Refresh</span>
-            </button>
-          </div>
-
-          <div style={{ padding: '10px 16px', background: '#0e1424', borderBottom: '1px solid var(--border-subtle)', fontSize: '11px', color: '#94a3b8' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-              <span>Bank ID:</span>
-              <strong style={{ color: '#38bdf8' }}>{bankId}</strong>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Learned Conventions:</span>
-              <strong style={{ color: '#34d399' }}>{memories.length} stored rules</strong>
-            </div>
-          </div>
-
-          <div className="memory-list">
-            {memories.length === 0 ? (
-              <div className="empty-state">
-                <BookOpen size={36} strokeWidth={1.2} />
-                <h4 style={{ color: '#e2e8f0', fontSize: '13px' }}>No Team Memories Yet</h4>
-                <p style={{ fontSize: '11px' }}>
-                  When you accept or reject review feedback, Hindsight stores your decisions as persistent team engineering standards.
-                </p>
-              </div>
-            ) : (
-              memories.map((m, idx) => (
-                <div key={m.id || idx} className="memory-card">
-                  <div className="memory-meta">
-                    <span className="fact-badge">
-                      {m.fact_type || "convention"}
-                    </span>
-                    <span>
-                      {m.created_at ? new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Stored"}
-                    </span>
-                  </div>
-                  <div className="memory-text">
-                    {m.text}
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
       </main>
+
+      {/* Hidden Slide-Over Drawer for Team Memory Bank */}
+      {isMemoryDrawerOpen && (
+        <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm transition-opacity">
+          <div className="w-full max-w-md bg-slate-900 border-l border-slate-800 h-full flex flex-col p-4 shadow-2xl animate-in slide-in-from-right duration-200">
+            {/* Drawer Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2">
+                <Brain size={18} className="text-emerald-400" />
+                <h3 className="font-bold text-sm text-slate-100">Team Memory Bank</h3>
+                <span className="badge badge-sm badge-success text-[10px] font-bold">
+                  {memories.length} stored
+                </span>
+              </div>
+              <button
+                onClick={() => setIsMemoryDrawerOpen(false)}
+                className="btn btn-ghost btn-xs btn-circle text-slate-400 hover:text-slate-200"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Search filter */}
+            <div className="py-3">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-3 text-slate-500" />
+                <input
+                  type="text"
+                  placeholder="Filter team conventions..."
+                  value={memorySearch}
+                  onChange={(e) => setMemorySearch(e.target.value)}
+                  className="input input-sm w-full pl-9 bg-slate-800 border-slate-700 text-xs rounded-lg text-slate-200 focus:outline-none focus:border-violet-500"
+                />
+              </div>
+            </div>
+
+            {/* Memory List */}
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1">
+              {filteredMemories.length === 0 ? (
+                <div className="h-48 flex flex-col items-center justify-center text-center text-slate-500 text-xs p-4">
+                  <BookOpen size={28} className="mb-2 text-slate-600" />
+                  <p>No team memories found matching filter.</p>
+                </div>
+              ) : (
+                filteredMemories.map((m, idx) => (
+                  <div
+                    key={m.id || idx}
+                    className="p-3 rounded-lg bg-slate-800/60 border border-slate-700/60 text-xs text-slate-300 space-y-1.5"
+                  >
+                    <div className="flex items-center justify-between text-[10px] text-slate-400">
+                      <span className="badge badge-xs badge-outline border-violet-500/50 text-violet-300 uppercase">
+                        {m.fact_type || "convention"}
+                      </span>
+                      <span>
+                        {m.created_at ? new Date(m.created_at).toLocaleDateString() : "Saved"}
+                      </span>
+                    </div>
+                    <p className="text-slate-200 leading-snug">
+                      {m.text}
+                    </p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* Drawer Footer: Refresh & Reset */}
+            <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+              <button
+                onClick={fetchMemories}
+                disabled={isMemoriesLoading}
+                className="btn btn-xs btn-ghost text-slate-400 hover:text-slate-200 gap-1"
+              >
+                <RefreshCw size={12} className={isMemoriesLoading ? "animate-spin" : ""} />
+                <span>Refresh</span>
+              </button>
+
+              <button
+                onClick={handleResetBank}
+                disabled={isResetting}
+                className="btn btn-xs btn-outline btn-error text-xs gap-1"
+                title="Clear all stored memories for a clean demo"
+              >
+                <RotateCcw size={12} />
+                <span>Reset Bank</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

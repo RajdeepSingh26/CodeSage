@@ -55,6 +55,10 @@ def test_hindsight_decision_and_memory_review():
     dec_data = dec_res.json()
     assert dec_data["success"] is True
 
+    # Allow Hindsight Cloud indexing to process
+    import time
+    time.sleep(2.5)
+
     # 2. Check that memory shows up in list
     list_res = client.get("/api/memory/list")
     assert list_res.status_code == 200

@@ -18,13 +18,14 @@ class ReviewFinding(BaseModel):
 
 class ReviewRequest(BaseModel):
     code: str
-    file_name: str = "service.py"
-    language: str = "python"
+    file_name: Optional[str] = None
+    language: str = "auto"
     bank_id: Optional[str] = None
     bypass_memory: bool = False  # Allows testing review without memory for direct comparison!
 
 class ReviewResponse(BaseModel):
     summary: str
+    detected_language: str = "plaintext"
     findings: List[ReviewFinding]
     memories_retrieved: List[str] = []
     review_mode: Literal["memory_informed", "baseline_no_memory"] = "baseline_no_memory"

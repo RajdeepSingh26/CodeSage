@@ -14,25 +14,24 @@ logger = logging.getLogger("llm_service")
 REVIEW_SYSTEM_PROMPT = """You are an elite Senior Staff Engineer and AI Code Review Agent named 'Codebase Memory'.
 Your defining capability is that you LEARN and APPLY your engineering team's historical decisions, conventions, and past review agreements stored in long-term memory.
 
-You will be provided with:
-1. Source Code under review
-2. Programming Language & File Name
-3. Relevant Team Memories retrieved from Hindsight persistent memory
+You accept code in ANY programming language.
 
 REVIEW INSTRUCTIONS:
-- Carefully inspect the code for bugs, architectural violations, security risks, error handling, and coding conventions.
-- CRITICAL TEAM MEMORY INTEGRATION:
-  * If 'Relevant Team Memories' contains conventions, past decisions, or accepted/rejected feedback that apply to this code, you MUST prioritize and explicitly enforce them!
-  * For any finding informed by team memory:
-    - Set `memory_used` to true.
-    - In `memory_citation`, cite the exact team convention/rule remembered from Hindsight (e.g., "Team Convention: All database access must be performed through the Repository layer.").
-    - In `title` and `description`, make it unmistakably clear that this is an established team standard (e.g., "Violates Team Architectural Convention: Direct DB Access").
-  * If no relevant team memories apply or the memory list is empty, perform a standard senior engineer baseline review (set `memory_used` to false and `memory_citation` to null).
+1. FIRST, identify and detect the exact programming language of the submitted code (e.g. python, typescript, javascript, go, java, csharp, cpp, rust, php, ruby, sql, bash, etc.).
+2. Carefully inspect the code for bugs, architectural violations, security risks, error handling, performance bottlenecks, and coding conventions.
+3. CRITICAL TEAM MEMORY INTEGRATION:
+   * If 'Relevant Team Memories' contains conventions, past decisions, or accepted/rejected feedback that apply to this code, you MUST prioritize and explicitly enforce them!
+   * For any finding informed by team memory:
+     - Set `memory_used` to true.
+     - In `memory_citation`, cite the exact team convention/rule remembered from Hindsight (e.g., "Team Convention: All database access must be performed through the Repository layer.").
+     - In `title` and `description`, make it unmistakably clear that this is an established team standard (e.g., "Violates Team Architectural Convention: Direct DB Access").
+   * If no relevant team memories apply or the memory list is empty, perform a standard senior engineer baseline review (set `memory_used` to false and `memory_citation` to null).
 
 OUTPUT FORMAT:
 You MUST respond with valid JSON adhering strictly to this JSON schema:
 {
-  "summary": "High-level review summary (1-3 sentences) noting whether team conventions were applied",
+  "detected_language": "lowercase canonical language name (e.g. python, typescript, javascript, go, rust, java, csharp, cpp, php, sql, etc.)",
+  "summary": "High-level review summary (1-3 sentences) noting detected language and whether team conventions were applied",
   "findings": [
     {
       "id": "finding-1",
@@ -132,8 +131,11 @@ Review this code now. Follow all instructions and output the JSON object."""
 
                 mode = "memory_informed" if any(f.memory_used for f in findings) or len(memories) > 0 else "baseline_no_memory"
 
+                detected_lang = data.get("detected_language") or (language if language != "auto" else "plaintext")
+                
                 return ReviewResponse(
                     summary=data.get("summary", "Code review completed successfully."),
+                    detected_language=detected_lang,
                     findings=findings,
                     memories_retrieved=memories,
                     review_mode=mode,
@@ -146,6 +148,7 @@ Review this code now. Follow all instructions and output the JSON object."""
         # Fallback if LLM failed
         return ReviewResponse(
             summary=f"Review generation error: {str(last_error)}",
+            detected_language=language if language != "auto" else "plaintext",
             findings=[
                 ReviewFinding(
                     id="finding-err",
