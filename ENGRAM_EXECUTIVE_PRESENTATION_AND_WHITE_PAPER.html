@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ENGRAM — System Architecture White Paper & Presentation Dossier</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090c14;
+      --card-bg: #0f1422;
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text: #e2e8f0;
+      --text-muted: #94a3b8;
+      --accent-violet: #8b5cf6;
+      --accent-indigo: #6366f1;
+      --accent-teal: #14b8a6;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-rose: #f43f5e;
+      --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', Consolas, monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: var(--font-sans);
+      background-color: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      padding: 40px 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    /* Print styles for PDF generation */
+    @media print {
+      body {
+        background-color: #ffffff !important;
+        color: #1e293b !important;
+        padding: 0 !important;
+      }
+      .container { max-width: 100% !important; }
+      .no-print { display: none !important; }
+      .card {
+        background: #ffffff !important;
+        border: 1px solid #cbd5e1 !important;
+        color: #1e293b !important;
+        box-shadow: none !important;
+        break-inside: avoid;
+      }
+      h1, h2, h3, h4 { color: #0f172a !important; }
+      pre, code {
+        background: #f1f5f9 !important;
+        color: #0f172a !important;
+        border: 1px solid #cbd5e1 !important;
+      }
+      .badge {
+        border: 1px solid #94a3b8 !important;
+        color: #0f172a !important;
+        background: #f8fafc !important;
+      }
+      .page-break { page-break-before: always; }
+    }
+
+    /* Header */
+    .header {
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 30px;
+      margin-bottom: 40px;
+    }
+    .header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: #c4b5fd;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    h1 {
+      font-size: 32px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #ffffff 40%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 750px;
+    }
+
+    /* Print action bar */
+    .print-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #111827;
+      border: 1px solid var(--card-border);
+      padding: 12px 20px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    .btn-print {
+      background: linear-gradient(135deg, var(--accent-violet), var(--accent-indigo));
+      color: #fff;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: opacity 0.2s;
+    }
+    .btn-print:hover { opacity: 0.9; }
+
+    /* Sections */
+    section { margin-bottom: 40px; }
+    h2 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #f1f5f9;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid var(--card-border);
+      padding-bottom: 8px;
+    }
+    h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin: 18px 0 8px 0;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 768px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+
+    /* Callout Alert */
+    .callout {
+      border-left: 4px solid var(--accent-teal);
+      background: rgba(20, 184, 166, 0.08);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 14px;
+    }
+    .callout strong { color: #5eead4; }
+
+    /* Tables */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    th, td {
+      padding: 10px 14px;
+      border: 1px solid var(--card-border);
+      text-align: left;
+    }
+    th {
+      background: #141b2e;
+      color: #93c5fd;
+      font-weight: 600;
+    }
+    tr:nth-child(even) { background: rgba(255, 255, 255, 0.02); }
+
+    /* Code blocks */
+    code {
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: #38bdf8;
+    }
+    pre {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: #060810;
+      border: 1px solid var(--card-border);
+      border-radius: 8px;
+      padding: 16px;
+      overflow-x: auto;
+      margin: 12px 0;
+      line-height: 1.5;
+      color: #e2e8f0;
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 6px;
+      margin-right: 6px;
+      margin-bottom: 4px;
+    }
+    .badge-teal { background: rgba(20, 184, 166, 0.15); color: #5eead4; border: 1px solid rgba(20, 184, 166, 0.3); }
+    .badge-violet { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; border: 1px solid rgba(139, 92, 246, 0.3); }
+    .badge-emerald { background: rgba(16, 185, 129, 0.15); color: #6ee7b7; border: 1px solid rgba(16, 185, 129, 0.3); }
+
+    /* Presentation Script Box */
+    .script-step {
+      border-left: 3px solid var(--accent-violet);
+      padding-left: 14px;
+      margin-bottom: 20px;
+    }
+    .script-time {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      color: #a78bfa;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .script-quote {
+      font-style: italic;
+      color: #cbd5e1;
+      font-size: 13.5px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="print-bar no-print">
+      <div>
+        <strong style="color: #fff; font-size: 14px;">ENGRAM System Dossier & Presentation Guide</strong>
+        <p style="color: var(--text-muted); font-size: 12px;">Save or print directly to PDF for presentation decks and whitepaper submission</p>
+      </div>
+      <button class="btn-print" onclick="window.print()">
+        🖨️ Print / Save as PDF
+      </button>
+    </div>
+
+    <header class="header">
+      <div class="header-badge">Research Dossier & System Architecture Whitepaper</div>
+      <h1>Engram: Autonomous Code Review Agent</h1>
+      <p class="subtitle">An AI engineering agent with persistent team memory, AST-validated self-healing multi-agent pipelines, and autonomous GitHub repository analysis.</p>
+    </header>
+
+    <!-- SECTION 1 -->
+    <section>
+      <h2>1. Executive Summary & Value Proposition</h2>
+      <div class="card">
+        <p>In modern software engineering teams, code review consumes up to <strong>35% of senior engineering velocity</strong>. While contemporary AI code reviewers (e.g. GitHub Copilot, static analyzers) provide generic pattern matching, they suffer from <strong>chronic amnesia</strong>: they evaluate pull requests in isolation, oblivious to past architectural debates, team conventions, and institutional knowledge.</p>
+      </div>
+
+      <div class="callout">
+        <strong>The Engram Paradigm:</strong> Engram bridges this gap by marrying <strong>LangGraph</strong> multi-agent orchestration with <strong>Hindsight Cloud</strong> persistent semantic memory bank. When an engineer accepts or dismisses a convention, Engram commits the decision into long-term memory, ensuring future reviews cite and enforce team-specific conventions with zero amnesia.
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <h3 style="color: #f87171;">❌ Generic AI Reviewers</h3>
+          <ul style="font-size: 13px; color: var(--text-muted); padding-left: 18px; margin-top: 8px;">
+            <li>Zero memory across reviews (stateless prompt loops)</li>
+            <li>Repeats discarded textbook patterns, causing PR friction</li>
+            <li>Produces hallucinated syntax and broken diffs</li>
+            <li>Limited to manual code snippet pasting</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3 style="color: #34d399;">✅ Engram Agent</h3>
+          <ul style="font-size: 13px; color: var(--text-muted); padding-left: 18px; margin-top: 8px;">
+            <li>Persistent episodic & semantic memory in Hindsight Cloud</li>
+            <li>Cites exact past decisions ("Team Convention PR #12")</li>
+            <li>Cyclical AST validation with self-healing retries</li>
+            <li>Autonomous in-memory GitHub repository streaming</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECTION 2 -->
+    <section>
+      <h2>2. System Architecture & Multi-Agent Pipeline</h2>
+      <div class="card">
+        <p style="font-size: 13.5px; margin-bottom: 14px;">Engram orchestrates code auditing using a cyclical directed graph built on <strong>LangGraph</strong> (<code>StateGraph</code>). Unlike brittle linear prompt chains, Engram enforces strict AST parsing validation and security gates before assembling the final verdict.</p>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Agent Role</th>
+              <th>Pipeline Phase</th>
+              <th>Key Responsibility</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Recall Agent</strong></td>
+              <td><code>recall</code></td>
+              <td>Embeds code symbols and stack to query Hindsight Cloud for active team conventions.</td>
+            </tr>
+            <tr>
+              <td><strong>Analysis Agent</strong></td>
+              <td><code>analysis</code></td>
+              <td>Audits code across bugs, performance, security, and team convention alignment.</td>
+            </tr>
+            <tr>
+              <td><strong>Fix Agent</strong></td>
+              <td><code>fix</code></td>
+              <td>Synthesizes drop-in replacement code and clean unified diffs (<code>diff -u</code>).</td>
+            </tr>
+            <tr>
+              <td><strong>Validation Agent</strong></td>
+              <td><code>validate</code></td>
+              <td>Executes deterministic AST parsing. If syntax fails, loops back to Fix Agent (max 2 retries).</td>
+            </tr>
+            <tr>
+              <td><strong>Security Agent</strong></td>
+              <td><code>security</code></td>
+              <td>Evaluates OWASP Top 10, CWE vectors, hardcoded secrets, and injection vectors.</td>
+            </tr>
+            <tr>
+              <td><strong>Final Review Agent</strong></td>
+              <td><code>final_review</code></td>
+              <td>Combines verdicts, maps Hindsight citations, severity levels, and timeline telemetry.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 3 -->
+    <section>
+      <h2>3. Autonomous GitHub Repository Ingestion Engine</h2>
+      <div class="card">
+        <p style="font-size: 13.5px; margin-bottom: 12px;">Engram reviews public repositories end-to-end without requiring local <code>git</code> CLI dependencies, Docker daemon, or arbitrary code execution:</p>
+        
+        <div style="margin: 12px 0;">
+          <span class="badge badge-teal">In-Memory Tarball Streaming</span>
+          <span class="badge badge-violet">Zip-Slip Traversal Mitigation</span>
+          <span class="badge badge-emerald">Deterministic Manifest Profiler</span>
+          <span class="badge badge-teal">Layer-Diverse 5-File Priority</span>
+        </div>
+
+        <pre>
+1. User provides URL: https://github.com/pallets/flask
+2. Ingestion: HTTP tarball stream via GitHub Codeload directly into memory.
+3. Safe Extraction: Strict traversal checks + filtering (.git, node_modules, binaries, >100KB).
+4. Profiling: Manifest inspection (pyproject.toml, package.json) detects stack & architecture.
+5. Prioritization: Scores & samples top 5 core files (Entrypoint, Router, Service, DB Layer).
+6. Execution: Runs LangGraph pipeline + Hindsight memory recall on each architectural file.
+7. Synthesis: Compiles repository blueprint, multi-file diff inspector, and timeline.
+        </pre>
+      </div>
+    </section>
+
+    <!-- SECTION 4 -->
+    <section>
+      <h2>4. Technology Stack & Deployment</h2>
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Technology</th>
+              <th>Implementation Purpose</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Agent Orchestration</strong></td>
+              <td><code>LangGraph (StateGraph)</code></td>
+              <td>Cyclical state machine with AST self-healing retry validation loop</td>
+            </tr>
+            <tr>
+              <td><strong>Team Memory</strong></td>
+              <td><code>Hindsight Cloud API</code></td>
+              <td>Episodic and semantic persistent memory bank across reviews</td>
+            </tr>
+            <tr>
+              <td><strong>LLM Inference</strong></td>
+              <td><code>Gemini 3.5 / Groq Llama-3.3</code></td>
+              <td>Dual-provider architecture with automatic resilience fallback</td>
+            </tr>
+            <tr>
+              <td><strong>Backend Engine</strong></td>
+              <td><code>FastAPI + Python 3.13</code></td>
+              <td>Asynchronous REST API with Pydantic v2 schemas and AST compilation</td>
+            </tr>
+            <tr>
+              <td><strong>Frontend Experience</strong></td>
+              <td><code>React 18 + Vite + Monaco</code></td>
+              <td>Dual-mode UI (Code Snippet & GitHub Repository explorer) with live diff viewer</td>
+            </tr>
+            <tr>
+              <td><strong>Production Cloud</strong></td>
+              <td><code>Vercel Serverless</code></td>
+              <td>Monorepo deployment bridging SPA frontend with FastAPI backend microservice</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SECTION 5 -->
+    <section class="page-break">
+      <h2>5. Presentation & Pitch Guide (3-Minute Hackathon Demo)</h2>
+      <div class="card">
+        <div class="script-step">
+          <div class="script-time">0:00 - 0:30 • The Hook: The Amnesiac AI Problem</div>
+          <div class="script-quote">
+            "Judges, every AI code reviewer today suffers from chronic amnesia. When your senior engineer decides: 'All database queries must use Repository classes', generic AI forgets within the hour. Tomorrow, it suggests the exact same rejected pattern again. We built <strong>Engram</strong>: an AI engineering agent that remembers how your team builds software."
+          </div>
+        </div>
+
+        <div class="script-step">
+          <div class="script-time">0:30 - 1:15 • The Live Demo: Single Code Review & Memory Loop</div>
+          <div class="script-quote">
+            "Watch this: In Baseline Mode, Engram gives generic feedback. When we switch <strong>Hindsight ON</strong>, it retrieves our team memory bank and flags the issue with an exact citation: <em>'Team Convention Applied: In PR #12, the team established all DB access must use Repository classes.'</em> When the engineer clicks <strong>Accept as Convention</strong>, it instantly updates Hindsight Cloud for the entire team."
+          </div>
+        </div>
+
+        <div class="script-step">
+          <div class="script-time">1:15 - 2:00 • The Multi-Agent Engine & AST Self-Healing</div>
+          <div class="script-quote">
+            "Under the hood, this isn't a single prompt. It is a <strong>LangGraph StateGraph</strong>. Fix Agent synthesizes replacement code, and our Validation Agent compiles it with a real AST parser! If syntax is broken, it triggers an automated self-healing retry loop before the Security Agent scans it."
+          </div>
+        </div>
+
+        <div class="script-step">
+          <div class="script-time">2:00 - 2:45 • The Showcase: Autonomous GitHub Repo Review</div>
+          <div class="script-quote">
+            "Now for our flagship capability: Engram doesn't just review snippets. We switch to <strong>GitHub Repository</strong> mode, enter <code>pallets/flask</code>, and click Review Repo. It streams the archive safely in memory, profiles the stack, selects the top 5 core files across entrypoints, routers, and database layers, and generates a complete repository audit with verified diffs."
+          </div>
+        </div>
+
+        <div class="script-step">
+          <div class="script-time">2:45 - 3:00 • The Vision & Conclusion</div>
+          <div class="script-quote">
+            "Engram transforms code review from a repetitive argument into shared engineering memory. Thank you!"
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer style="text-align: center; color: var(--text-muted); font-size: 12px; margin-top: 50px; border-top: 1px solid var(--card-border); padding-top: 20px;">
+      Engram • AI Engineering Agent with Persistent Team Memory • Hackathon White Paper & Presentation Dossier
+    </footer>
+  </div>
+</body>
+</html>
