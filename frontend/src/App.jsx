@@ -6,22 +6,13 @@ import {
   Code2,
   Sparkles,
   CheckCircle2,
-  XCircle,
   RotateCcw,
   RefreshCw,
   Search,
   X,
-  Layers,
   Trash2,
   BookOpen,
-  ArrowRight,
-  ChevronDown,
-  ShieldAlert,
-  AlertTriangle,
-  Info,
-  Check,
-  Eye,
-  Sliders
+  ChevronDown
 } from 'lucide-react';
 
 const SUPPORTED_LANGUAGES = [
@@ -42,102 +33,12 @@ const SUPPORTED_LANGUAGES = [
   { id: "css", label: "CSS" }
 ];
 
-const DEMO_STEPS = {
-  1: {
-    title: "01 Establish Convention",
-    fileName: "user_service.py",
-    language: "python",
-    memoryEnabled: true,
-    hint: "Initial PR: Direct database access in route handler. Review and click 'Accept as Convention' to teach Hindsight.",
-    code: `from fastapi import APIRouter, HTTPException
-import sqlite3
-
-router = APIRouter()
-
-# User Registration Endpoint
-@router.post("/users")
-def register_user(username: str, email: str):
-    # Direct database connection inside route handler
-    conn = sqlite3.connect("production.db")
-    cursor = conn.cursor()
-    
-    # Executing raw SQL directly in service logic
-    cursor.execute(
-        "INSERT INTO users (username, email) VALUES (?, ?)", 
-        (username, email)
-    )
-    conn.commit()
-    user_id = cursor.lastrowid
-    conn.close()
-    
-    return {"status": "created", "user_id": user_id}
-`
-  },
-  2: {
-    title: "02 Apply Memory",
-    fileName: "order_service.py",
-    language: "python",
-    memoryEnabled: true,
-    hint: "Follow-up PR: Different developer submits similar direct DB code. Hindsight recalls the established convention and enforces it.",
-    code: `from fastapi import APIRouter, HTTPException
-import sqlite3
-
-router = APIRouter()
-
-@router.post("/orders/checkout")
-def checkout_cart(cart_id: str, user_id: str, amount: float):
-    # Notice: Another developer accessing database directly in the controller
-    db = sqlite3.connect("production.db")
-    cur = db.cursor()
-    
-    cur.execute(
-        "INSERT INTO orders (cart_id, user_id, total) VALUES (?, ?, ?)",
-        (cart_id, user_id, amount)
-    )
-    db.commit()
-    order_id = cur.lastrowid
-    db.close()
-    
-    return {"order_id": order_id, "amount": amount, "status": "paid"}
-`
-  },
-  3: {
-    title: "03 Compare Baseline",
-    fileName: "order_service.py",
-    language: "python",
-    memoryEnabled: false,
-    hint: "Baseline Mode: Same code reviewed WITHOUT Hindsight memory. Demonstrates generic isolated advice.",
-    code: `from fastapi import APIRouter, HTTPException
-import sqlite3
-
-router = APIRouter()
-
-@router.post("/orders/checkout")
-def checkout_cart(cart_id: str, user_id: str, amount: float):
-    # Notice: Another developer accessing database directly in the controller
-    db = sqlite3.connect("production.db")
-    cur = db.cursor()
-    
-    cur.execute(
-        "INSERT INTO orders (cart_id, user_id, total) VALUES (?, ?, ?)",
-        (cart_id, user_id, amount)
-    )
-    db.commit()
-    order_id = cur.lastrowid
-    db.close()
-    
-    return {"order_id": order_id, "amount": amount, "status": "paid"}
-`
-  }
-};
-
 export default function App() {
   const [code, setCode] = useState("");
   const [selectedLanguage, setSelectedLanguage] = useState("auto");
   const [detectedLanguage, setDetectedLanguage] = useState("");
   const [activeFileName, setActiveFileName] = useState("");
   const [memoryEnabled, setMemoryEnabled] = useState(true);
-  const [activeDemoStep, setActiveDemoStep] = useState(null);
   
   const [isReviewing, setIsReviewing] = useState(false);
   const [reviewResult, setReviewResult] = useState(null);
@@ -177,23 +78,10 @@ export default function App() {
     }
   };
 
-  const selectDemoStep = (stepNumber) => {
-    setActiveDemoStep(stepNumber);
-    const step = DEMO_STEPS[stepNumber];
-    setCode(step.code);
-    setActiveFileName(step.fileName);
-    setSelectedLanguage(step.language);
-    setMemoryEnabled(step.memoryEnabled);
-    setReviewResult(null);
-    setReviewLatency(null);
-    setDetectedLanguage("");
-  };
-
   const handleClear = () => {
     setCode("");
     setActiveFileName("");
     setReviewResult(null);
-    setActiveDemoStep(null);
     setDetectedLanguage("");
     setReviewLatency(null);
   };
@@ -372,72 +260,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* 2. Secondary Sub-Toolbar: Compact 3-Step Interactive Tour */}
-      <div className="h-[38px] min-h-[38px] w-full bg-[#080b12] border-b border-white/[0.06] px-4 sm:px-6 flex items-center justify-between z-20 shrink-0 text-xs">
-        <div className="flex items-center gap-2 overflow-x-auto py-1">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 select-none">
-            DEMO
-          </span>
-          <div className="h-3 w-[1px] bg-white/[0.08] shrink-0" />
-          <div className="flex items-center gap-1 shrink-0">
-            <button
-              onClick={() => selectDemoStep(1)}
-              className={`px-2.5 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5 transition-all ${
-                activeDemoStep === 1
-                  ? 'bg-violet-600/25 text-violet-200 border border-violet-500/50 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-              }`}
-            >
-              <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
-                activeDemoStep === 1 ? 'bg-violet-500 text-white' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
-              }`}>1</span>
-              <span>Establish Convention</span>
-            </button>
-            <span className="text-slate-600 text-xs select-none">→</span>
-            <button
-              onClick={() => selectDemoStep(2)}
-              className={`px-2.5 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5 transition-all ${
-                activeDemoStep === 2
-                  ? 'bg-teal-600/25 text-teal-200 border border-teal-500/50 font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-              }`}
-            >
-              <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
-                activeDemoStep === 2 ? 'bg-teal-400 text-slate-950 font-bold' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
-              }`}>2</span>
-              <span>Apply Memory</span>
-            </button>
-            <span className="text-slate-600 text-xs select-none">→</span>
-            <button
-              onClick={() => selectDemoStep(3)}
-              className={`px-2.5 py-0.5 rounded text-[11px] font-medium flex items-center gap-1.5 transition-all ${
-                activeDemoStep === 3
-                  ? 'bg-slate-700/60 text-slate-100 border border-white/[0.2] font-semibold shadow-sm'
-                  : 'text-slate-400 hover:text-slate-200 hover:bg-white/[0.04]'
-              }`}
-            >
-              <span className={`w-3.5 h-3.5 rounded-full text-[9px] font-mono flex items-center justify-center ${
-                activeDemoStep === 3 ? 'bg-slate-300 text-slate-900 font-bold' : 'bg-slate-800 text-slate-400 border border-white/[0.08]'
-              }`}>3</span>
-              <span>Compare Baseline</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Compact Right-Side Context Display */}
-        <div className="hidden lg:flex items-center gap-2 text-[11px] text-slate-400 truncate pl-3">
-          {activeDemoStep ? (
-            <div className="flex items-center gap-1.5 truncate" title={DEMO_STEPS[activeDemoStep]?.hint}>
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-400 shrink-0" />
-              <span className="font-semibold text-slate-300">Scenario {activeDemoStep}:</span>
-              <span className="text-slate-400 truncate">{DEMO_STEPS[activeDemoStep]?.hint}</span>
-            </div>
-          ) : (
-            <span className="text-slate-500 italic">Select a scenario to populate demo code, or paste custom code</span>
-          )}
-        </div>
-      </div>
-
       {/* Main Framed Split View (Left: Editor | Right: Review) */}
       <main className="flex-1 min-h-0 w-full p-2 sm:p-3 gap-2 sm:gap-3 flex flex-col lg:flex-row overflow-hidden">
         {/* Left Column: Monaco Code Editor */}
@@ -507,9 +329,8 @@ export default function App() {
           {/* Monaco Editor Canvas */}
           <div className="flex-1 w-full h-full relative overflow-hidden bg-[#07090f]">
             {(!code || code.trim() === "") && (
-              <div className="absolute top-4 left-14 pointer-events-none z-10 flex flex-col font-mono text-[12.5px] text-slate-500/80 select-none space-y-1">
+              <div className="absolute top-4 left-14 pointer-events-none z-10 flex flex-col font-mono text-[12.5px] text-slate-500/80 select-none">
                 <p># Paste code here to review</p>
-                <p># Or choose a scenario from the Demo Tour above.</p>
               </div>
             )}
             <Editor
@@ -719,7 +540,7 @@ export default function App() {
                   No Review Yet
                 </h3>
                 <p className="text-[11.5px] max-w-xs text-slate-400 leading-relaxed">
-                  Paste code or choose a demo scenario above to begin the review.
+                  Paste code in the editor and click Review Code to begin.
                 </p>
               </div>
             )}
@@ -969,7 +790,7 @@ export default function App() {
                 onClick={handleResetBank}
                 disabled={isResetting}
                 className="btn btn-xs btn-outline btn-error text-[11px] gap-1"
-                title="Clear all stored memories for a clean demo"
+                title="Clear all stored team memories"
               >
                 <RotateCcw size={11} />
                 <span>Reset Bank</span>
