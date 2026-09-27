@@ -17,10 +17,10 @@ from app.demo_scenarios import DEMO_SCENARIOS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
-logger = logging.getLogger("codesage")
+logger = logging.getLogger("engram")
 
 app = FastAPI(
-    title="CodeSage API",
+    title="Engram API",
     description="An AI Code Review Agent That Learns Your Team with Persistent Hindsight Memory",
     version="1.0.0"
 )
@@ -40,7 +40,7 @@ app.add_middleware(
 def health_check():
     return {
         "status": "healthy",
-        "app": "CodeSage",
+        "app": "Engram",
         "llm_provider": settings.LLM_PROVIDER,
         "llm_model": settings.GEMINI_MODEL,
         "hindsight_bank": settings.HINDSIGHT_BANK_ID,

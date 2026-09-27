@@ -24,7 +24,7 @@ class HindsightService:
                 try:
                     client.create_bank(
                         bank_id=target_bank,
-                        name=f"CodeSage ({target_bank})",
+                        name=f"Engram ({target_bank})",
                         mission="Store team software engineering conventions, architectural decisions, and review feedback."
                     )
                     logger.info(f"Created Hindsight memory bank: {target_bank}")
@@ -113,7 +113,7 @@ class HindsightService:
                     pass
                 client.create_bank(
                     bank_id=target_bank,
-                    name="CodeSage Bank",
+                    name="Engram Bank",
                     mission="Store team software engineering conventions, architectural decisions, and review feedback."
                 )
                 logger.info(f"Re-created bank '{target_bank}'")

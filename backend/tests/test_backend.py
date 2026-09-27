@@ -17,7 +17,7 @@ def test_health():
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
-    assert data["app"] == "CodeSage"
+    assert data["app"] == "Engram"
 
 def test_get_scenarios():
     response = client.get("/api/scenarios")

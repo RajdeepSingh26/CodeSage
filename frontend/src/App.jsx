@@ -228,7 +228,7 @@ export default function App() {
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
               <h1 className="text-[15px] font-bold tracking-tight text-white leading-none">
-                CodeSage
+                Engram
               </h1>
               <span className="badge badge-xs bg-violet-950/60 text-violet-300 border border-violet-500/30 text-[9px] font-mono font-bold uppercase tracking-wider px-1.5 py-0.5">
                 HINDSIGHT AI
