@@ -64,6 +64,66 @@ class LLMService:
             text = text[:-3]
         return text.strip()
 
+    def _call_groq(self, user_content: str) -> Optional[dict]:
+        if not settings.GROQ_API_KEY:
+            return None
+        try:
+            import httpx
+            model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
+            logger.info(f"Attempting review with Groq model: {model}")
+            resp = httpx.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": model,
+                    "messages": [
+                        {"role": "system", "content": REVIEW_SYSTEM_PROMPT},
+                        {"role": "user", "content": user_content}
+                    ],
+                    "response_format": {"type": "json_object"},
+                    "temperature": 0.2
+                },
+                timeout=25.0
+            )
+            if resp.status_code == 200:
+                content = resp.json()["choices"][0]["message"]["content"]
+                return json.loads(self._clean_json_text(content))
+            else:
+                logger.warning(f"Groq API returned status {resp.status_code}: {resp.text}")
+                return None
+        except Exception as e:
+            logger.warning(f"Groq API request failed: {e}")
+            return None
+
+    def _call_gemini(self, user_content: str) -> Optional[dict]:
+        if not self.gemini_client:
+            return None
+        models_to_try = [
+            settings.GEMINI_MODEL,
+            "gemini-3.5-flash-lite",
+            "gemini-2.5-flash"
+        ]
+        for model_name in models_to_try:
+            try:
+                logger.info(f"Attempting review with Gemini model: {model_name}")
+                response = self.gemini_client.models.generate_content(
+                    model=model_name,
+                    contents=user_content,
+                    config=types.GenerateContentConfig(
+                        system_instruction=REVIEW_SYSTEM_PROMPT,
+                        response_mime_type="application/json",
+                        temperature=0.2
+                    )
+                )
+                raw_json = self._clean_json_text(response.text)
+                return json.loads(raw_json)
+            except Exception as e:
+                logger.warning(f"Model {model_name} failed: {e}")
+        return None
+
     def generate_review(
         self,
         code: str,
@@ -91,59 +151,45 @@ class LLMService:
 
 Review this code now. Follow all instructions and output the JSON object."""
 
-        models_to_try = [
-            settings.GEMINI_MODEL,
-            "gemini-3.5-flash-lite",
-            "gemini-2.5-flash"
-        ]
+        data = None
+        if settings.LLM_PROVIDER.lower() == "groq":
+            data = self._call_groq(user_content)
+            if not data:
+                logger.info("Groq unavailable or failed; falling back to Gemini.")
+                data = self._call_gemini(user_content)
+        else:
+            data = self._call_gemini(user_content)
+            if not data and settings.GROQ_API_KEY:
+                logger.info("Gemini failed; falling back to Groq.")
+                data = self._call_groq(user_content)
 
-        last_error = None
-        for model_name in models_to_try:
-            try:
-                logger.info(f"Attempting review with model: {model_name}")
-                response = self.gemini_client.models.generate_content(
-                    model=model_name,
-                    contents=user_content,
-                    config=types.GenerateContentConfig(
-                        system_instruction=REVIEW_SYSTEM_PROMPT,
-                        response_mime_type="application/json",
-                        temperature=0.2
+        if data:
+            findings = []
+            for idx, f in enumerate(data.get("findings", [])):
+                findings.append(
+                    ReviewFinding(
+                        id=f.get("id", f"finding-{idx+1}"),
+                        severity=f.get("severity", "medium"),
+                        category=f.get("category", "convention"),
+                        title=f.get("title", "Review Finding"),
+                        description=f.get("description", ""),
+                        suggestion=f.get("suggestion", ""),
+                        memory_used=f.get("memory_used", False),
+                        memory_citation=f.get("memory_citation", None)
                     )
                 )
 
-                raw_json = self._clean_json_text(response.text)
-                data = json.loads(raw_json)
+            mode = "memory_informed" if any(f.memory_used for f in findings) or len(memories) > 0 else "baseline_no_memory"
+            detected_lang = data.get("detected_language") or (language if language != "auto" else "plaintext")
 
-                findings = []
-                for idx, f in enumerate(data.get("findings", [])):
-                    findings.append(
-                        ReviewFinding(
-                            id=f.get("id", f"finding-{idx+1}"),
-                            severity=f.get("severity", "medium"),
-                            category=f.get("category", "convention"),
-                            title=f.get("title", "Review Finding"),
-                            description=f.get("description", ""),
-                            suggestion=f.get("suggestion", ""),
-                            memory_used=f.get("memory_used", False),
-                            memory_citation=f.get("memory_citation", None)
-                        )
-                    )
-
-                mode = "memory_informed" if any(f.memory_used for f in findings) or len(memories) > 0 else "baseline_no_memory"
-
-                detected_lang = data.get("detected_language") or (language if language != "auto" else "plaintext")
-                
-                return ReviewResponse(
-                    summary=data.get("summary", "Code review completed successfully."),
-                    detected_language=detected_lang,
-                    findings=findings,
-                    memories_retrieved=memories,
-                    review_mode=mode,
-                    bank_id=bank_id
-                )
-            except Exception as e:
-                logger.warning(f"Model {model_name} failed: {e}")
-                last_error = e
+            return ReviewResponse(
+                summary=data.get("summary", "Code review completed successfully."),
+                detected_language=detected_lang,
+                findings=findings,
+                memories_retrieved=memories,
+                review_mode=mode,
+                bank_id=bank_id
+            )
 
         # Fallback if LLM failed
         return ReviewResponse(

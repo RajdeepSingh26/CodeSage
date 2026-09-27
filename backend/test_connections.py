@@ -74,9 +74,36 @@ def test_hindsight():
         print(f"[HINDSIGHT] ERROR: {e}")
         return False
 
+def test_groq():
+    api_key = os.getenv("GROQ_API_KEY")
+    model = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile")
+    if not api_key or "your_" in api_key:
+        print("[GROQ] Skipped or not configured")
+        return False
+    try:
+        import httpx
+        resp = httpx.post(
+            "https://api.groq.com/openai/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"model": model, "messages": [{"role": "user", "content": "Respond with 'Groq verified successfully' in under 5 words."}]},
+            timeout=10.0
+        )
+        if resp.status_code == 200:
+            out = resp.json()["choices"][0]["message"]["content"]
+            print(f"[GROQ] SUCCESS! Model: {model} | Output: {out.strip()}")
+            return True
+        else:
+            print(f"[GROQ] Status {resp.status_code}: {resp.text}")
+            return False
+    except Exception as e:
+        print(f"[GROQ] ERROR: {e}")
+        return False
+
 if __name__ == "__main__":
     print("Testing live API connections...")
     g = test_gemini()
     h = test_hindsight()
+    gr = test_groq()
     print("--------------------------------------------------")
-    print(f"Overall Result: Gemini={'PASS' if g else 'FAIL'} | Hindsight={'PASS' if h else 'FAIL'}")
+    print(f"Overall Result: Gemini={'PASS' if g else 'FAIL'} | Hindsight={'PASS' if h else 'FAIL'} | Groq={'PASS' if gr else 'FAIL'}")
+
