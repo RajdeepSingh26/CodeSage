@@ -145,7 +145,7 @@ def run_repository_review(
     proposed_fixes: List[ProposedFix] = []
     finding_counter = 1
 
-    for file_info in selected_files:
+    for file_idx, file_info in enumerate(selected_files, 1):
         file_path = file_info.file_path
         code_content = files_map.get(file_path, "")
         if not code_content.strip():
@@ -194,7 +194,7 @@ def run_repository_review(
             proposed_fixes.append(fix)
 
         timeline.append(TimelineStep(
-            step_id=f"step-file-{finding_counter}",
+            step_id=f"step-file-{file_idx}",
             node_name="agentic_file_pipeline",
             title=f"Analyzed {file_path}",
             description=f"Role: {file_info.role}. Discovered {len(file_res.findings)} issues with AST validation.",
