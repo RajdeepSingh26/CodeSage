@@ -83,8 +83,15 @@ Generate the complete corrected code now. Output the JSON object."""
             if lines and lines[-1].startswith("```"):
                 lines = lines[:-1]
             candidate_code = "\n".join(lines).strip()
-        fixed_code = candidate_code
-        explanation = result.get("explanation") or "Applied recommended architectural and convention fixes."
+        raw_exp = result.get("explanation")
+        if isinstance(raw_exp, list):
+            explanation = " ".join(str(x) for x in raw_exp)
+        elif isinstance(raw_exp, dict):
+            explanation = " ".join(f"{k}: {v}" for k, v in raw_exp.items())
+        elif raw_exp:
+            explanation = str(raw_exp)
+        else:
+            explanation = "Applied recommended architectural and convention fixes."
 
     diff_str = generate_unified_diff(original_code, fixed_code, file_name)
     duration_ms = int((time.perf_counter() - start_time) * 1000)

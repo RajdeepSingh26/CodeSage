@@ -137,12 +137,21 @@ def run_engram_pipeline(
     # Create ProposedFix model
     proposed_fix = None
     if final_state.get("fixed_code"):
+        raw_fix_exp = final_state.get("fix_explanation", "")
+        if isinstance(raw_fix_exp, list):
+            fix_exp_str = " ".join(str(item) for item in raw_fix_exp)
+        elif isinstance(raw_fix_exp, dict):
+            fix_exp_str = " ".join(f"{k}: {v}" for k, v in raw_fix_exp.items())
+        else:
+            fix_exp_str = str(raw_fix_exp) if raw_fix_exp else "Applied recommended architectural and convention fixes."
+
         proposed_fix = ProposedFix(
             file_name=file_name or "code",
             original_code=code,
             fixed_code=final_state.get("fixed_code", ""),
             diff=final_state.get("diff", ""),
-            explanation=final_state.get("fix_explanation", ""),
+            unified_diff=final_state.get("diff", ""),
+            explanation=fix_exp_str,
             validation_status=final_state.get("validation_status", "passed"),
             validation_checks=final_state.get("validation_checks", [])
         )

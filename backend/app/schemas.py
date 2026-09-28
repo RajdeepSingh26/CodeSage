@@ -1,4 +1,4 @@
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 from pydantic import BaseModel, Field
 
 class ReviewFinding(BaseModel):
@@ -18,10 +18,11 @@ class ReviewFinding(BaseModel):
 
 class ProposedFix(BaseModel):
     file_name: Optional[str] = None
-    original_code: str = Field(description="Original submitted code snippet")
-    fixed_code: str = Field(description="Actionable corrected code implementing recommendations")
-    diff: str = Field(description="Unified diff between original and fixed code")
-    explanation: str = Field(description="Summary of changes and rationale")
+    original_code: str = Field(default="", description="Original submitted code snippet")
+    fixed_code: str = Field(default="", description="Actionable corrected code implementing recommendations")
+    diff: str = Field(default="", description="Unified diff between original and fixed code")
+    unified_diff: Optional[str] = Field(default="", description="Unified diff alias")
+    explanation: Union[str, List[str]] = Field(default="", description="Summary of changes and rationale")
     validation_status: Literal["passed", "warning", "retried_and_fixed", "failed"] = "passed"
     validation_checks: List[str] = []
 

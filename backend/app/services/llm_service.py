@@ -67,46 +67,55 @@ class LLMService:
     def _call_groq(self, user_content: str, system_prompt: str = REVIEW_SYSTEM_PROMPT) -> Optional[dict]:
         if not settings.GROQ_API_KEY:
             return None
-        try:
-            import httpx
-            model = settings.GROQ_MODEL or "llama-3.3-70b-versatile"
-            logger.info(f"Attempting LLM call with Groq model: {model}")
-            resp = httpx.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {settings.GROQ_API_KEY}",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_content}
-                    ],
-                    "response_format": {"type": "json_object"},
-                    "temperature": 0.2
-                },
-                timeout=25.0
-            )
-            if resp.status_code == 200:
-                content = resp.json()["choices"][0]["message"]["content"]
-                return json.loads(self._clean_json_text(content))
-            else:
-                logger.warning(f"Groq API returned status {resp.status_code}: {resp.text}")
-                return None
-        except Exception as e:
-            logger.warning(f"Groq API request failed: {e}")
-            return None
+        models_to_try = [
+            settings.GROQ_MODEL,
+            "openai/gpt-oss-120b",
+            "openai/gpt-oss-20b",
+            "qwen/qwen3.8-27b"
+        ]
+        unique_models = list(dict.fromkeys(models_to_try))
+        import httpx
+        for model in unique_models:
+            try:
+                logger.info(f"Attempting LLM call with Groq model: {model}")
+                resp = httpx.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_content}
+                        ],
+                        "response_format": {"type": "json_object"},
+                        "temperature": 0.2
+                    },
+                    timeout=25.0
+                )
+                if resp.status_code == 200:
+                    content = resp.json()["choices"][0]["message"]["content"]
+                    return json.loads(self._clean_json_text(content))
+                else:
+                    logger.warning(f"Groq model {model} returned status {resp.status_code}: {resp.text}")
+            except Exception as e:
+                logger.warning(f"Groq model {model} failed: {e}")
+        return None
 
     def _call_gemini(self, user_content: str, system_prompt: str = REVIEW_SYSTEM_PROMPT) -> Optional[dict]:
         if not self.gemini_client:
             return None
         models_to_try = [
             settings.GEMINI_MODEL,
+            "gemini-3.1-flash-lite",
+            "gemini-3.8-flash",
             "gemini-3.5-flash-lite",
-            "gemini-2.5-flash"
+            "gemini-3.5-flash"
         ]
-        for model_name in models_to_try:
+        unique_models = list(dict.fromkeys(models_to_try))
+        for model_name in unique_models:
             try:
                 logger.info(f"Attempting LLM call with Gemini model: {model_name}")
                 response = self.gemini_client.models.generate_content(

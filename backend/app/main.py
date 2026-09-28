@@ -83,15 +83,34 @@ def review_code(req: ReviewRequest):
     target_bank = req.bank_id or settings.HINDSIGHT_BANK_ID
     logger.info(f"Initiating Engram LangGraph review pipeline for target bank '{target_bank}' (bypass_memory={req.bypass_memory})")
 
-    # Run complete LangGraph agentic pipeline
-    response = run_engram_pipeline(
-        code=req.code,
-        file_name=req.file_name,
-        language=req.language,
-        bank_id=target_bank,
-        bypass_memory=req.bypass_memory
-    )
-    return response
+    try:
+        response = run_engram_pipeline(
+            code=req.code,
+            file_name=req.file_name,
+            language=req.language,
+            bank_id=target_bank,
+            bypass_memory=req.bypass_memory
+        )
+        return response
+    except Exception as e:
+        logger.exception(f"Error during LangGraph pipeline execution: {e}")
+        return ReviewResponse(
+            summary=f"Review error: {str(e)}",
+            detected_language=req.language if req.language != "auto" else "plaintext",
+            findings=[
+                ReviewFinding(
+                    id="finding-err",
+                    severity="high",
+                    category="bug",
+                    title="Review Service Error",
+                    description=f"An error occurred while analyzing the code: {str(e)}",
+                    suggestion="Please verify provider API quota or try again in a moment."
+                )
+            ],
+            memories_retrieved=[],
+            review_mode="baseline_no_memory",
+            bank_id=target_bank
+        )
 
 @app.post("/api/repository-review", response_model=RepoReviewResponse)
 def review_repository(req: RepoReviewRequest):
